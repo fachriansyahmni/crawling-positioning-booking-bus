@@ -1,0 +1,36 @@
+{
+  "server": {
+    "host": "0.0.0.0",
+    "port": 5000,
+    "debug": true
+  },
+  "selenium": {
+    "headless": false,
+    "disable_gpu": false,
+    "no_sandbox": false,
+    "disable_dev_shm": false
+  },
+  "crawler": {
+    "output_directory": "new_data",
+    "max_logs": 100,
+    "browser_zoom": "40%",
+    "scroll_enabled": false,
+    "delay_between_tasks": 1.0,
+    "delay_after_click": [0.5, 1.0],
+    "page_load_delay": 10
+  },
+  "routes": {
+    "comment": "Routes are defined in traveloka.py. This section is for reference only.",
+    "available_routes": [
+      "Jakarta-Semarang",
+      "Jakarta-Surabaya", 
+      "Jakarta-Malang",
+      "Jakarta-Lampung"
+    ]
+  },
+  "ui": {
+    "auto_refresh_interval": 2000,
+    "files_refresh_interval": 5000,
+    "theme": "bootstrap5"
+  }
+}

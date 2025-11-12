@@ -1,0 +1,2 @@
+# This file ensures the new_data directory is tracked by git
+# CSV files in this directory are ignored by .gitignore
