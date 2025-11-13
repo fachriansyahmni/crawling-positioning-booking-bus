@@ -1,0 +1,103 @@
+{
+  "version": "1.0",
+  "last_updated": "2025-11-13T13:15:17.266812",
+  "platforms": {
+    "traveloka": {
+      "base_url": "https://www.traveloka.com",
+      "url_format": "traveloka_format",
+      "date_format": "%Y-%m-%d",
+      "routes": {
+        "jkt_smg": "https://www.traveloka.com/id-id/bus-travel/search?o=JAKARTA&d=SEMARANG&dt=[[DATE]]",
+        "jkt_sby": "https://www.traveloka.com/id-id/bus-travel/search?o=JAKARTA&d=SURABAYA&dt=[[DATE]]",
+        "jkt_mlg": "https://www.traveloka.com/id-id/bus-travel/search?o=JAKARTA&d=MALANG&dt=[[DATE]]",
+        "jkt_lpg": "https://www.traveloka.com/id-id/bus-travel/search?o=JAKARTA&d=LAMPUNG&dt=[[DATE]]"
+      }
+    },
+    "redbus": {
+      "base_url": "https://www.redbus.id",
+      "url_format": "redbus_format",
+      "date_format": "[[DAY]]-[[MONTH]]-[[YEAR]]",
+      "routes": {
+        "jkt_smg": "https://www.redbus.id/tiket-bus/jakarta-ke-semarang?fromCityName=Jakarta&fromCityId=193490&toCityName=Semarang%20(Semua%20Lokasi)&toCityId=193470&onward=[[DAY]]-[[MONTH]]-[[YEAR]]&busType=Any&srcCountry=IDN&destCountry=IDN",
+        "jkt_sby": "https://www.redbus.id/tiket-bus/jakarta-ke-surabaya?fromCityName=Jakarta&fromCityId=193490&toCityName=Surabaya%20(Semua%20Lokasi)&toCityId=194354&onward=[[DAY]]-[[MONTH]]-[[YEAR]]&busType=Any&srcCountry=IDN&destCountry=IDN",
+        "jkt_mlg": "https://www.redbus.id/tiket-bus/jakarta-ke-malang?fromCityName=Jakarta&fromCityId=193490&toCityName=Malang&toCityId=194349&onward=[[DAY]]-[[MONTH]]-[[YEAR]]&busType=Any&srcCountry=IDN&destCountry=IDN",
+        "jkt_lpg": "https://www.redbus.id/tiket-bus/jakarta-ke-bandar-lampung?fromCityName=Jakarta&fromCityId=193490&toCityName=Bandar%20Lampung&toCityId=194674&onward=[[DAY]]-[[MONTH]]-[[YEAR]]&busType=Any&srcCountry=IDN&destCountry=IDN"
+      }
+    }
+  },
+  "master_routes": [
+    {
+      "id": "jkt_smg",
+      "name": "Jakarta-Semarang",
+      "origin": "Jakarta",
+      "destination": "Semarang",
+      "category": "intercity",
+      "active": true,
+      "platforms": {
+        "redbus": true,
+        "traveloka": true
+      }
+    },
+    {
+      "id": "jkt_sby",
+      "name": "Jakarta-Surabaya",
+      "origin": "Jakarta",
+      "destination": "Surabaya",
+      "category": "intercity",
+      "active": true,
+      "platforms": {
+        "redbus": true,
+        "traveloka": true
+      }
+    },
+    {
+      "id": "jkt_mlg",
+      "name": "Jakarta-Malang",
+      "origin": "Jakarta",
+      "destination": "Malang",
+      "category": "intercity",
+      "active": true,
+      "platforms": {
+        "redbus": true,
+        "traveloka": true
+      }
+    },
+    {
+      "id": "jkt_lpg",
+      "name": "Jakarta-Lampung",
+      "origin": "Jakarta",
+      "destination": "Lampung",
+      "category": "intercity",
+      "active": true,
+      "platforms": {
+        "redbus": true,
+        "traveloka": true
+      }
+    },
+    {
+      "id": "jkt-yka",
+      "name": "Jakarta-Yogyakarta",
+      "origin": "Jakarta",
+      "destination": "Yogyakarta",
+      "category": "intercity",
+      "active": true,
+      "created_at": "2025-11-13T13:13:11.761546",
+      "updated_at": "2025-11-13T13:13:11.761568",
+      "platforms": {
+        "redbus": false,
+        "traveloka": false
+      }
+    },
+    {
+      "id": "jkt-mlg_-_copy",
+      "name": "Jakarta-Malang - Copy",
+      "origin": "Jakarta",
+      "destination": "Malang",
+      "category": "intercity",
+      "active": true,
+      "created_at": "2025-11-13T13:15:17.266798",
+      "updated_at": "2025-11-13T13:15:17.266808"
+    }
+  ],
+  "route_mappings": {}
+}

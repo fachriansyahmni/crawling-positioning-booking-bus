@@ -16,6 +16,7 @@ import sys
 from datetime import datetime
 
 # Available routes (using placeholders for date components)
+# Legacy routes - now managed by RouteManager
 AVAILABLE_ROUTES = {
     "Jakarta-Semarang": "https://www.redbus.id/tiket-bus/jakarta-ke-semarang?fromCityName=Jakarta&fromCityId=193490&toCityName=Semarang%20(Semua%20Lokasi)&toCityId=193470&onward=[[DAY]]-[[MONTH]]-[[YEAR]]&busType=Any&srcCountry=IDN&destCountry=IDN",
     "Jakarta-Surabaya": "https://www.redbus.id/tiket-bus/jakarta-ke-surabaya?fromCityName=Jakarta&fromCityId=193490&toCityName=Surabaya%20(Semua%20Lokasi)&toCityId=194354&onward=[[DAY]]-[[MONTH]]-[[YEAR]]&busType=Any&srcCountry=IDN&destCountry=IDN",
@@ -23,9 +24,30 @@ AVAILABLE_ROUTES = {
     "Jakarta-Lampung": "https://www.redbus.id/tiket-bus/jakarta-ke-bandar-lampung?fromCityName=Jakarta&fromCityId=193490&toCityName=Bandar%20Lampung&toCityId=194674&onward=[[DAY]]-[[MONTH]]-[[YEAR]]&busType=Any&srcCountry=IDN&destCountry=IDN",
 }
 
-# Keep these for backward compatibility with web_crawler_unified.py
-routes = AVAILABLE_ROUTES 
-dates = ["15","16","17","18","19","20","21","22","23","24","25","26","27","28","29","30","31"]
+def get_routes_from_manager():
+    """Get routes from RouteManager if available, fallback to legacy"""
+    try:
+        from routes_manager import RouteManager
+        from url_crawler_formatter import LegacyCompatibility
+        
+        routes_manager = RouteManager()
+        legacy_compat = LegacyCompatibility(routes_manager)
+        
+        # Get routes in legacy format
+        routes_dict, dates_list = legacy_compat.get_redbus_legacy_format()
+        
+        print(f"✓ Loaded {len(routes_dict)} routes from RouteManager")
+        return routes_dict, dates_list
+        
+    except ImportError:
+        print("⚠ RouteManager not available, using legacy routes")
+        return AVAILABLE_ROUTES, ["15","16","17","18","19","20","21","22","23","24","25","26","27","28","29","30","31"]
+    except Exception as e:
+        print(f"⚠ Error loading from RouteManager: {e}")
+        return AVAILABLE_ROUTES, ["15","16","17","18","19","20","21","22","23","24","25","26","27","28","29","30","31"]
+
+# Get routes from manager or use legacy
+routes, dates = get_routes_from_manager()
 
 
 def load_config():
@@ -381,6 +403,7 @@ if __name__ == "__main__":
     else:
         # Interactive mode - get user input
         selected_routes, selected_dates = get_user_input()
+        print(f"\nStarting scraping for {len(selected_routes)} routes and {len(selected_dates)} dates...")
         all_bus_details = scrape_with_selection(selected_routes, selected_dates)
     
     if all_bus_details:

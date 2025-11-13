@@ -14,7 +14,7 @@ import pandas as pd
 class BusDatabase:
     """Database handler for bus crawling data"""
     
-    def __init__(self, db_type='sqlite', db_config=None):
+    def __init__(self, db_type='mysql', db_config=None):
         """
         Initialize database connection
         
@@ -398,6 +398,23 @@ class BusDatabase:
         
         return hashlib.sha256(unique_str.encode()).hexdigest()
     
+    def _ensure_connection(self):
+        """Ensure database connection is alive"""
+        try:
+            if self.db_type == 'mysql':
+                self.conn.ping(reconnect=True)
+            elif self.db_type == 'sqlite':
+                self.cursor.execute("SELECT 1")
+            return True
+        except Exception as e:
+            print(f"⚠️ Database connection lost, reconnecting: {e}")
+            try:
+                self._connect()
+                return True
+            except Exception as reconnect_error:
+                print(f"❌ Failed to reconnect: {reconnect_error}")
+                return False
+            
     def insert_bus_data(self, data: Dict, platform: str) -> bool:
         """
         Insert single bus data record
@@ -1071,19 +1088,19 @@ class BusDatabase:
                 ORDER BY crawl_timestamp
             """
             
-            if self.db_type == 'sqlite':
-                cursor = self.conn.cursor()
-                cursor.execute(query, (start_date.strftime('%Y-%m-%d %H:%M:%S'),))
-                rows = cursor.fetchall()
+            # if self.db_type == 'sqlite':
+            #     cursor = self.conn.cursor()
+            #     cursor.execute(query, (start_date.strftime('%Y-%m-%d %H:%M:%S'),))
+            #     rows = cursor.fetchall()
                 
-                # Get column names
-                columns = [description[0] for description in cursor.description]
+            #     # Get column names
+            #     columns = [description[0] for description in cursor.description]
                 
-                # Convert to DataFrame
-                import pandas as pd
-                df = pd.DataFrame(rows, columns=columns)
-                
-            elif self.db_type == 'mysql':
+            #     # Convert to DataFrame
+            #     import pandas as pd
+            #     df = pd.DataFrame(rows, columns=columns)
+
+            if self.db_type == 'mysql':
                 cursor = self.conn.cursor(dictionary=True)
                 cursor.execute(query.replace('?', '%s'), (start_date.strftime('%Y-%m-%d %H:%M:%S'),))
                 rows = cursor.fetchall()
@@ -1091,15 +1108,15 @@ class BusDatabase:
                 import pandas as pd
                 df = pd.DataFrame(rows)
                 
-            elif self.db_type == 'postgresql':
-                cursor = self.conn.cursor()
-                cursor.execute(query.replace('?', '%s'), (start_date.strftime('%Y-%m-%d %H:%M:%S'),))
-                rows = cursor.fetchall()
+            # elif self.db_type == 'postgresql':
+            #     cursor = self.conn.cursor()
+            #     cursor.execute(query.replace('?', '%s'), (start_date.strftime('%Y-%m-%d %H:%M:%S'),))
+            #     rows = cursor.fetchall()
                 
-                columns = [desc[0] for desc in cursor.description]
+            #     columns = [desc[0] for desc in cursor.description]
                 
-                import pandas as pd
-                df = pd.DataFrame(rows, columns=columns)
+            #     import pandas as pd
+            #     df = pd.DataFrame(rows, columns=columns)
             
             cursor.close()
             
