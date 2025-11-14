@@ -1107,6 +1107,61 @@ def get_scraped_data(platform):
     data_files.sort(key=lambda x: x['modified'], reverse=True)
     return jsonify(data_files)
 
+
+@app.route('/api/data/db')
+def query_database_data():
+    """Query bus data stored in the database with filters.
+
+    Query parameters:
+      - platform (optional)
+      - route_name (optional)
+      - date (optional, YYYY-MM-DD)
+      - bus_name (optional)
+      - limit (optional)
+    """
+    try:
+        platform = request.args.get('platform')
+        route_name = request.args.get('route_name')
+        date = request.args.get('date')
+        bus_name = request.args.get('bus_name')
+        limit = request.args.get('limit')
+
+        db = BusDatabase(db_type=db_config.get('type', 'sqlite'), db_config=db_config)
+
+        # Use query_data to fetch rows (limit default handled by function)
+        qlimit = int(limit) if limit and limit.isdigit() else None
+
+        # If qlimit is None, pass a large number to avoid implicit LIMIT in query_data (it accepts limit param)
+        df = db.query_data(platform=platform, route_name=route_name, route_date=date, limit=qlimit or 1000000)
+
+        # If bus_name filter provided, apply on DataFrame
+        if bus_name and not df.empty:
+            if 'bus_name' in df.columns:
+                df = df[df['bus_name'] == bus_name]
+
+        # Convert DataFrame to list of dicts safely
+        result = []
+        if not df.empty:
+            for _, row in df.iterrows():
+                record = {}
+                for col in df.columns:
+                    val = row[col]
+                    # Convert datetimes
+                    if hasattr(val, 'isoformat'):
+                        record[col] = val.isoformat()
+                    else:
+                        try:
+                            # numpy types
+                            record[col] = val.item() if hasattr(val, 'item') else val
+                        except Exception:
+                            record[col] = val
+                result.append(record)
+
+        db.close()
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/data/preview/<filename>')
 def get_file_data(filename):
     """Get preview of a specific data file"""
@@ -1594,8 +1649,14 @@ def make_predictions():
         data = request.json
         days = data.get('days', 7)  # Number of days to predict
         route_filter = data.get('route', None)  # Optional route filter
-        
-        log_message('training', f'Generating predictions for next {days} days...', 'info')
+        start_date = data.get('start_date', None)
+        end_date = data.get('end_date', None)
+
+        if start_date and end_date:
+            log_message('training', f'Generating predictions for range {start_date} to {end_date}...', 'info')
+        else:
+            log_message('training', f'Generating predictions for next {days} days...', 'info')
+
         if route_filter:
             log_message('training', f'Route filter: {route_filter}', 'info')
         
@@ -1605,22 +1666,28 @@ def make_predictions():
         # Initialize predictor
         predictor = BusPredictor(db_config=db_config)
         
-        # Generate predictions with custom days
-        predictions_df = predictor.predict_custom_days(days=days, route_filter=route_filter)
+        # Generate predictions: date range if provided, otherwise custom days
+        if start_date and end_date:
+            predictions_df = predictor.predict_date_range(start_date, end_date, route_filter=route_filter)
+        else:
+            predictions_df = predictor.predict_custom_days(days=days, route_filter=route_filter)
         
         if predictions_df.empty:
             log_message('training', '⚠ No predictions generated', 'warning')
             return jsonify({'error': 'No predictions generated'}), 500
         
-        # Determine period name
-        if days <= 7:
-            period = 'next_week'
-        elif days <= 30:
-            period = 'next_month'
-        elif days <= 365:
-            period = 'next_year'
+        # Determine period name for saving
+        if start_date and end_date:
+            period = 'custom_range'
         else:
-            period = 'custom'
+            if days <= 7:
+                period = 'next_week'
+            elif days <= 30:
+                period = 'next_month'
+            elif days <= 365:
+                period = 'next_year'
+            else:
+                period = 'custom'
         
         # Save to database
         session_id = predictor.save_predictions(predictions_df, period=period)

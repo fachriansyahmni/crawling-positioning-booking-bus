@@ -307,11 +307,11 @@
                         <i class="bi bi-graph-up"></i> Analytics
                     </button>
                 </li>
-                <li class="nav-item" role="presentation">
+                <!-- <li class="nav-item" role="presentation">
                     <button class="nav-link" id="compare-tab" data-bs-toggle="pill" data-bs-target="#compare" type="button">
                         <i class="bi bi-bar-chart-fill"></i> Comparison
                     </button>
-                </li>
+                </li> -->
                 <li class="nav-item" role="presentation">
                     <button class="nav-link" id="logs-tab" data-bs-toggle="pill" data-bs-target="#logs" type="button">
                         <i class="bi bi-terminal-fill"></i> Logs
@@ -521,15 +521,50 @@
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <h3><i class="bi bi-folder-fill"></i> Scraped Data Files</h3>
                         <div>
-                            <button class="btn btn-sm btn-outline-primary" onclick="filterData('all')">All</button>
-                            <button class="btn btn-sm btn-outline-primary" onclick="filterData('traveloka')">Traveloka</button>
-                            <button class="btn btn-sm btn-outline-primary" onclick="filterData('redbus')">Redbus</button>
+                            <button class="btn btn-sm btn-outline-primary" id="view-files-btn">View Files</button>
+                            <button class="btn btn-sm btn-outline-primary" id="view-db-btn">View Database</button>
                             <button class="btn btn-primary" onclick="refreshData()">
                                 <i class="bi bi-arrow-clockwise"></i> Refresh
                             </button>
                         </div>
                     </div>
                     
+                    <!-- Data view controls: files or database -->
+                    <div id="data-view-controls" class="mb-3">
+                        <div id="data-files-controls" style="display:block;">
+                            <small class="text-muted">Showing files in <code>new_data/</code></small>
+                        </div>
+                        <div id="data-db-controls" style="display:none;">
+                            <div class="row g-2">
+                                <div class="col-md-2">
+                                    <label class="form-label small">Platform</label>
+                                    <select id="data-platform-select" class="form-select form-select-sm">
+                                        <option value="">All</option>
+                                        <option value="traveloka">Traveloka</option>
+                                        <option value="redbus">Redbus</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small">Route</label>
+                                    <select id="data-route-select" class="form-select form-select-sm">
+                                        <option value="">All routes</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small">Crawl Date</label>
+                                    <input type="date" id="data-filter-date" class="form-control form-control-sm">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small">Bus Company</label>
+                                    <input type="text" id="data-filter-bus" class="form-control form-control-sm" placeholder="Company name">
+                                </div>
+                                <div class="col-md-2 d-flex align-items-end">
+                                    <button class="btn btn-sm btn-primary w-100" id="data-db-search">Search DB</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div id="data-files-list"></div>
                     
                     <!-- Data Preview Modal -->
@@ -598,14 +633,14 @@
                 </div>
                 
                 <!-- Comparison Tab -->
-                <div class="tab-pane fade" id="compare" role="tabpanel">
+                <!-- <div class="tab-pane fade" id="compare" role="tabpanel">
                     <h3><i class="bi bi-diagram-3-fill"></i> Platform Comparison</h3>
                     <button class="btn btn-primary mb-3" onclick="loadComparison()">
                         <i class="bi bi-arrow-clockwise"></i> Generate Comparison
                     </button>
                     
                     <div id="comparison-content"></div>
-                </div>
+                </div> -->
                 
                 <!-- Logs Tab -->
                 <div class="tab-pane fade" id="logs" role="tabpanel">

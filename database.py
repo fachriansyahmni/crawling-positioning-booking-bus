@@ -865,7 +865,7 @@ class BusDatabase:
             return pd.DataFrame()
     
     def get_predictions(self, session_id: int = None, date: str = None, 
-                       bus_name: str = None, limit: int = 100) -> pd.DataFrame:
+                       bus_name: str = None, limit: Optional[int] = None) -> pd.DataFrame:
         """
         Get predictions with optional filters
         
@@ -908,13 +908,15 @@ class BusDatabase:
         JOIN prediction_sessions ps ON p.session_id = ps.id
         WHERE {where_sql}
         ORDER BY p.prediction_date, p.bus_name
-        LIMIT ?
         """
         
+        # If a limit was provided, append LIMIT placeholder and add to params
+        if limit is not None:
+            sql = sql.rstrip() + "\nLIMIT ?\n"
+            params.append(int(limit))  # Convert to native int
+
         if self.db_type in ['mysql', 'postgresql']:
             sql = sql.replace('?', '%s')
-        
-        params.append(int(limit))  # Convert to native int
         
         try:
             self.cursor.execute(sql, tuple(params))

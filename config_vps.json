@@ -1,0 +1,29 @@
+{
+  "server": {
+    "host": "0.0.0.0",
+    "debug": false,
+    "traveloka_port": 5000,
+    "redbus_port": 5001,
+    "unified_port": 5002
+  },
+  "selenium": {
+    "headless": true,
+    "disable_gpu": true,
+    "no_sandbox": true,
+    "disable_dev_shm": true
+  },
+  "data": {
+    "output_dir": "new_data",
+    "backup_dir": "data"
+  },
+  "crawler": {
+    "default_workers": 3,
+    "max_workers": 5,
+    "timeout": 30,
+    "retry_attempts": 3
+  },
+  "logging": {
+    "level": "INFO",
+    "max_logs": 100
+  }
+}
