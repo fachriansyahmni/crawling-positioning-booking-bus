@@ -32,6 +32,7 @@ document.addEventListener('DOMContentLoaded', function() {
     loadUnifiedRoutes();
     refreshData();
     loadAvailableRoutes();  // Load routes for prediction
+    initDataViewControls();
     
     // Auto-refresh status every 2 seconds
     setInterval(updateStatus, 2000);
@@ -857,6 +858,173 @@ function downloadFile(filename) {
     window.location.href = `/api/download/${filename}`;
 }
 
+// --- Database view controls & helpers (Files <-> Database toggle) ---
+function initDataViewControls() {
+    try {
+        const viewFilesBtn = document.getElementById('view-files-btn');
+        const viewDbBtn = document.getElementById('view-db-btn');
+        const dataFilesControls = document.getElementById('data-files-controls');
+        const dataDbControls = document.getElementById('data-db-controls');
+        const dataDbSearch = document.getElementById('data-db-search');
+
+        if (viewFilesBtn) {
+            viewFilesBtn.addEventListener('click', function () {
+                dataFilesControls.style.display = 'block';
+                dataDbControls.style.display = 'none';
+                // Load file listing
+                loadDataFiles(currentDataFilter);
+            });
+        }
+
+        if (viewDbBtn) {
+            viewDbBtn.addEventListener('click', function () {
+                dataFilesControls.style.display = 'none';
+                dataDbControls.style.display = 'block';
+                // Populate route select if not yet populated
+                populateDataRouteSelect();
+            });
+        }
+
+        if (dataDbSearch) {
+            dataDbSearch.addEventListener('click', function () {
+                loadDatabaseResults();
+            });
+        }
+    } catch (err) {
+        console.warn('initDataViewControls failed', err);
+    }
+}
+
+async function populateDataRouteSelect() {
+    try {
+        const select = document.getElementById('data-route-select');
+        if (!select) return;
+        // If already populated with options > 1, skip
+        if (select.options && select.options.length > 1) return;
+
+        const res = await fetch('/api/routes/available');
+        if (!res.ok) return;
+        const routes = await res.json();
+        routes.forEach(r => {
+            const opt = document.createElement('option');
+            opt.value = r;
+            opt.textContent = r;
+            select.appendChild(opt);
+        });
+    } catch (err) {
+        console.warn('populateDataRouteSelect failed', err);
+    }
+}
+
+// Load DB results and render into the existing data-files-list container
+async function loadDatabaseResults() {
+    try {
+        const platform = document.getElementById('data-platform-select')?.value || '';
+        const route = document.getElementById('data-route-select')?.value || '';
+        const date = document.getElementById('data-filter-date')?.value || '';
+        const bus = document.getElementById('data-filter-bus')?.value || '';
+
+        // Limit to avoid huge responses; change as needed
+        const limit = 1000;
+
+        const params = new URLSearchParams();
+        if (platform) params.append('platform', platform);
+        if (route) params.append('route_name', route);
+        if (date) params.append('date', date);
+        if (bus) params.append('bus_name', bus);
+        params.append('limit', String(limit));
+
+        const url = '/api/data/db?' + params.toString();
+        const res = await fetch(url);
+        const data = await res.json();
+
+        const container = document.getElementById('data-files-list');
+        if (!container) return;
+
+        // Keep last DB results for preview
+        window.__lastDbResults = Array.isArray(data) ? data : [];
+
+        if (!Array.isArray(data) || data.length === 0) {
+            container.innerHTML = '<div class="alert alert-info">No database rows found</div>';
+            return;
+        }
+
+        // Render a simple table with preview buttons
+        const rowsHtml = data.map((row, idx) => {
+            const dateStr = row.route_date || row.crawl_timestamp || row.created_at || '';
+            const routeName = row.route_name || row.route || '';
+            const company = row.bus_name || row.company || '';
+            const platformBadge = row.platform ? `<span class="badge bg-${row.platform === 'traveloka' ? 'primary' : 'danger'}">${row.platform}</span>` : '';
+            return `
+                <div class="file-item d-flex align-items-center justify-content-between">
+                    <div>
+                        <h6 class="mb-1">${platformBadge} ${routeName}</h6>
+                        <small class="text-muted">${dateStr} &nbsp; ${company}</small>
+                    </div>
+                    <div>
+                        <button class="btn btn-sm btn-outline-primary me-2" onclick="previewDbRow(${idx})">
+                            <i class="bi bi-eye"></i> Preview
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        container.innerHTML = rowsHtml;
+    } catch (err) {
+        console.error('loadDatabaseResults failed', err);
+        const container = document.getElementById('data-files-list');
+        if (container) container.innerHTML = `<div class="alert alert-danger">Error loading DB results: ${err.message}</div>`;
+    }
+}
+
+// Preview a single DB row using the existing preview modal
+function previewDbRow(idx) {
+    try {
+        const results = window.__lastDbResults || [];
+        const row = results[idx];
+        if (!row) return alert('Row not found');
+
+        document.getElementById('previewModalLabel').textContent = `DB Row Preview`;
+
+        // Stats: show single row count
+        const statsHtml = `
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="stats-card">
+                        <div class="stats-number">1</div>
+                        <div class="text-muted small">Row</div>
+                    </div>
+                </div>
+                <div class="col-md-9">
+                    <div class="text-muted small">Previewing row from database</div>
+                </div>
+            </div>
+        `;
+        document.getElementById('preview-stats').innerHTML = statsHtml;
+
+        // Build key/value table
+        const table = document.getElementById('preview-table');
+        const thead = table.querySelector('thead');
+        const tbody = table.querySelector('tbody');
+
+        thead.innerHTML = `<tr><th>Field</th><th>Value</th></tr>`;
+        const keys = Object.keys(row);
+        tbody.innerHTML = keys.map(k => `
+            <tr>
+                <td style="min-width: 250px"><strong>${k}</strong></td>
+                <td>${row[k] === null || row[k] === undefined ? '' : String(row[k])}</td>
+            </tr>
+        `).join('');
+
+        const modal = new bootstrap.Modal(document.getElementById('previewModal'));
+        modal.show();
+    } catch (err) {
+        console.error('previewDbRow failed', err);
+        alert('Failed to preview row');
+    }
+}
+
 // Comparison
 async function loadComparison() {
     try {
@@ -1538,7 +1706,7 @@ async function viewSession(sessionId) {
                         </div>
                         <div class="modal-body">
                             <div class="table-responsive" style="max-height: 500px;">
-                                <table class="table table-sm table-hover">
+                                <table id="session-predictions-table" class="table table-sm table-hover display" style="width:100%">
                                     <thead class="table-light sticky-top">
                                         <tr>
                                             <th>Date</th>
@@ -1553,6 +1721,25 @@ async function viewSession(sessionId) {
                                             <th>Depart</th>
                                             <th>Arrive</th>
                                             <th>Price</th>
+                                        </tr>
+                                        <!-- Filter row: will be filled by DataTables or fallback JS -->
+                                        <tr class="table-filter-row">
+                                            <th style="min-width:160px">
+                                                <input type="date" id="session-filter-date-start" class="form-control form-control-sm" title="Start date">
+                                                <input type="date" id="session-filter-date-end" class="form-control form-control-sm" title="End date">
+                                            </th>
+                                            <th style="min-width:160px">
+                                            </th>
+                                            <th><input type="search" class="form-control form-control-sm column-filter" data-col="2" placeholder="Filter route"></th>
+                                            <th><select class="form-select form-select-sm column-filter" data-col="3"><option value="">All platforms</option></select></th>
+                                            <th><input type="search" class="form-control form-control-sm column-filter" data-col="4" placeholder="Filter company"></th>
+                                            <th></th>
+                                            <th></th>
+                                            <th></th>
+                                            <th></th>
+                                            <th></th>
+                                            <th></th>
+                                            <th></th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -1598,6 +1785,177 @@ async function viewSession(sessionId) {
         // Show modal
         const modalInstance = new bootstrap.Modal(document.getElementById('sessionModal'));
         modalInstance.show();
+
+        // Initialize DataTables if available, otherwise fallback to simple filtering
+        (function initSessionTable() {
+            const tableEl = document.getElementById('session-predictions-table');
+
+            // Helper to populate platform select with unique platforms
+            function populatePlatformSelect() {
+                const select = tableEl.querySelector('select[data-col="3"]');
+                const platforms = Array.from(new Set(predictions.map(p => p.platform))).sort();
+                platforms.forEach(pl => {
+                    const opt = document.createElement('option');
+                    opt.value = pl;
+                    opt.textContent = pl;
+                    select.appendChild(opt);
+                });
+            }
+
+            populatePlatformSelect();
+
+            const dateStartInput = tableEl.querySelector('#session-filter-date-start');
+            const dateEndInput = tableEl.querySelector('#session-filter-date-end');
+
+            // If DataTables (jQuery plugin) is present, initialize it
+            try {
+                if (window.jQuery && jQuery.fn && jQuery.fn.DataTable) {
+                    const $table = jQuery(tableEl);
+                    const dt = $table.DataTable({
+                        pageLength: 25,
+                        lengthMenu: [10, 25, 50, 100],
+                        order: [[0, 'asc']],
+                        responsive: true,
+                        dom: "<'d-flex justify-content-between mb-2'<'dt-left'f><'dt-right'l>>rtip",
+                        initComplete: function () {
+                            const api = this.api();
+
+                            // Column filters for Route (2), Platform (3), Bus Company (4)
+                            api.columns([2,3,4]).every(function () {
+                                const col = this;
+                                const colIndex = col.index();
+
+                                if (colIndex === 3) {
+                                    // platform select: already populated in DOM
+                                    const sel = jQuery(tableEl).find('select[data-col="3"]');
+                                    sel.on('change', function () {
+                                        const val = jQuery(this).val();
+                                        col.search(val ? '^' + jQuery.fn.dataTable.util.escapeRegex(val) + '$' : '', true, false).draw();
+                                    });
+                                } else {
+                                    // text input
+                                    const input = jQuery(tableEl).find('input[data-col="' + colIndex + '"]');
+                                    input.on('keyup change clear', function () {
+                                        if (col.search() !== this.value) {
+                                            col.search(this.value).draw();
+                                        }
+                                    });
+                                }
+                            });
+
+                            // Date range filter using DataTables custom search
+                            const customDateFilter = function (settings, searchData, index, rowData, counter) {
+                                // searchData[0] corresponds to Date column text
+                                const rowDateStr = searchData[0] || '';
+                                if (!rowDateStr) return true;
+
+                                const startVal = dateStartInput && dateStartInput.value ? new Date(dateStartInput.value) : null;
+                                const endVal = dateEndInput && dateEndInput.value ? new Date(dateEndInput.value) : null;
+
+                                // Parse row date (expect YYYY-MM-DD or ISO)
+                                const rowDate = new Date(rowDateStr);
+                                if (isNaN(rowDate)) return true;
+
+                                if (startVal && rowDate < startVal) return false;
+                                if (endVal && rowDate > endVal) return false;
+                                return true;
+                            };
+
+                            // Register filter
+                            jQuery.fn.dataTable.ext.search.push(customDateFilter);
+
+                            // Re-draw on date changes
+                            if (dateStartInput) jQuery(dateStartInput).on('change', function () { api.draw(); });
+                            if (dateEndInput) jQuery(dateEndInput).on('change', function () { api.draw(); });
+
+                            // When modal is hidden remove the custom filter
+                            document.getElementById('sessionModal').addEventListener('hidden.bs.modal', function () {
+                                try {
+                                    const idx = jQuery.fn.dataTable.ext.search.indexOf(customDateFilter);
+                                    if (idx !== -1) jQuery.fn.dataTable.ext.search.splice(idx, 1);
+                                } catch (e) { }
+                            });
+                        }
+                    });
+
+                    // When modal is hidden, destroy DataTable to avoid reinit issues
+                    document.getElementById('sessionModal').addEventListener('hidden.bs.modal', function () {
+                        try { dt.destroy(true); } catch (e) { }
+                    });
+
+                    return;
+                }
+            } catch (err) {
+                console.warn('DataTables init failed, falling back to simple filtering', err);
+            }
+
+            // Fallback: simple client-side filtering (no jQuery/DataTables)
+            try {
+                const inputs = tableEl.querySelectorAll('.column-filter');
+                const dateStart = tableEl.querySelector('#session-filter-date-start');
+                const dateEnd = tableEl.querySelector('#session-filter-date-end');
+
+                function parseDateString(s) {
+                    if (!s) return null;
+                    // Accept YYYY-MM-DD or ISO-like strings
+                    const d = new Date(s);
+                    return isNaN(d) ? null : d;
+                }
+
+                function applyFilters() {
+                    const filters = {};
+                    inputs.forEach(inp => {
+                        const col = parseInt(inp.getAttribute('data-col'), 10);
+                        const val = inp.value && inp.value.toString().trim().toLowerCase();
+                        if (val) filters[col] = val;
+                    });
+
+                    const startVal = parseDateString(dateStart ? dateStart.value : null);
+                    const endVal = parseDateString(dateEnd ? dateEnd.value : null);
+
+                    const rows = tableEl.querySelectorAll('tbody tr');
+                    rows.forEach(row => {
+                        const cells = row.querySelectorAll('td');
+                        let show = true;
+
+                        // Date range check (column 0)
+                        if (startVal || endVal) {
+                            const rowDateStr = cells[0] ? cells[0].textContent.trim() : '';
+                            const rowDate = parseDateString(rowDateStr);
+                            if (!rowDate) {
+                                show = false;
+                            } else {
+                                if (startVal && rowDate < startVal) show = false;
+                                if (endVal && rowDate > endVal) show = false;
+                            }
+                        }
+
+                        if (!show) {
+                            row.style.display = 'none';
+                            return;
+                        }
+
+                        for (const [colIdx, term] of Object.entries(filters)) {
+                            const c = cells[colIdx] ? cells[colIdx].textContent.trim().toLowerCase() : '';
+                            if (!c.includes(term)) { show = false; break; }
+                        }
+                        row.style.display = show ? '' : 'none';
+                    });
+                }
+
+                inputs.forEach(inp => {
+                    inp.addEventListener('input', applyFilters);
+                    inp.addEventListener('change', applyFilters);
+                });
+
+                if (dateStart) dateStart.addEventListener('change', applyFilters);
+                if (dateEnd) dateEnd.addEventListener('change', applyFilters);
+
+                // For platform select, populate options already done above
+            } catch (err) {
+                console.warn('Fallback table filtering setup failed', err);
+            }
+        })();
         
     } catch (error) {
         alert('Error loading session: ' + error.message);
