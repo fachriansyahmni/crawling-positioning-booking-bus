@@ -1,299 +1,33 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Unified Bus Crawler - Traveloka & Redbus</title>
+    <title>Bus Crawler Redbus</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
-    <style>
-        :root {
-            --traveloka-color: #0064D2;
-            --redbus-color: #D84E55;
-            --success-color: #198754;
-            --warning-color: #ffc107;
-            --danger-color: #dc3545;
-        }
-        
-        body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-        
-        .main-container {
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
-            overflow: hidden;
-        }
-        
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 30px;
-            text-align: center;
-        }
-        
-        .header h1 {
-            font-size: 2.5rem;
-            font-weight: bold;
-            margin-bottom: 10px;
-        }
-        
-        .platform-badge {
-            display: inline-block;
-            padding: 5px 15px;
-            border-radius: 20px;
-            font-size: 0.9rem;
-            font-weight: bold;
-            margin: 0 5px;
-        }
-        
-        .badge-traveloka {
-            background: var(--traveloka-color);
-            color: white;
-        }
-        
-        .badge-redbus {
-            background: var(--redbus-color);
-            color: white;
-        }
-        
-        .nav-pills .nav-link {
-            border-radius: 10px;
-            font-weight: 600;
-            margin: 0 5px;
-        }
-        
-        .nav-pills .nav-link.active {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        }
-        
-        .crawler-section {
-            background: #f8f9fa;
-            border-radius: 10px;
-            padding: 20px;
-            margin-bottom: 20px;
-            border: 2px solid #e9ecef;
-        }
-        
-        .crawler-section.traveloka-section {
-            border-color: var(--traveloka-color);
-        }
-        
-        .crawler-section.redbus-section {
-            border-color: var(--redbus-color);
-        }
-        
-        .btn-start {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border: none;
-            color: white;
-            font-weight: bold;
-            padding: 12px 30px;
-            border-radius: 25px;
-            transition: all 0.3s;
-        }
-        
-        .btn-start:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
-            color: white;
-        }
-        
-        .btn-stop {
-            background: var(--danger-color);
-            border: none;
-            color: white;
-            font-weight: bold;
-            padding: 12px 30px;
-            border-radius: 25px;
-        }
-        
-        .progress-container {
-            background: white;
-            border-radius: 10px;
-            padding: 20px;
-            margin: 20px 0;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-        }
-        
-        .progress {
-            height: 30px;
-            border-radius: 15px;
-            overflow: hidden;
-        }
-        
-        .progress-bar.traveloka-progress {
-            background: linear-gradient(90deg, var(--traveloka-color) 0%, #0080ff 100%);
-        }
-        
-        .progress-bar.redbus-progress {
-            background: linear-gradient(90deg, var(--redbus-color) 0%, #ff6b72 100%);
-        }
-        
-        .time-info {
-            font-size: 0.85rem;
-            color: #6c757d;
-        }
-        
-        .time-info i {
-            margin-right: 3px;
-        }
-        
-        .eta-text {
-            font-weight: 600;
-        }
-        
-        .stats-card {
-            background: white;
-            border-radius: 10px;
-            padding: 20px;
-            margin: 10px 0;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-            border-left: 4px solid;
-        }
-        
-        .stats-card.traveloka {
-            border-left-color: var(--traveloka-color);
-        }
-        
-        .stats-card.redbus {
-            border-left-color: var(--redbus-color);
-        }
-        
-        .stats-number {
-            font-size: 2rem;
-            font-weight: bold;
-            color: #667eea;
-        }
-        
-        .log-container {
-            background: #1e1e1e;
-            color: #d4d4d4;
-            border-radius: 10px;
-            padding: 15px;
-            max-height: 400px;
-            overflow-y: auto;
-            font-family: 'Courier New', monospace;
-            font-size: 0.9rem;
-        }
-        
-        .log-entry {
-            padding: 5px 0;
-            border-bottom: 1px solid #333;
-        }
-        
-        .log-entry:last-child {
-            border-bottom: none;
-        }
-        
-        .log-timestamp {
-            color: #858585;
-        }
-        
-        .log-info { color: #4fc3f7; }
-        .log-success { color: #81c784; }
-        .log-warning { color: #ffb74d; }
-        .log-error { color: #e57373; }
-        
-        .log-platform {
-            display: inline-block;
-            padding: 2px 8px;
-            border-radius: 3px;
-            font-size: 0.75rem;
-            font-weight: bold;
-            margin-right: 5px;
-        }
-        
-        .log-platform.traveloka {
-            background: var(--traveloka-color);
-        }
-        
-        .log-platform.redbus {
-            background: var(--redbus-color);
-        }
-        
-        .data-table {
-            max-height: 500px;
-            overflow: auto;
-        }
-        
-        .file-item {
-            background: white;
-            border-radius: 8px;
-            padding: 15px;
-            margin: 10px 0;
-            border: 1px solid #e9ecef;
-            transition: all 0.3s;
-        }
-        
-        .file-item:hover {
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            transform: translateY(-2px);
-        }
-        
-        .comparison-card {
-            background: white;
-            border-radius: 10px;
-            padding: 20px;
-            margin: 15px 0;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-        }
-        
-        .worker-badge {
-            display: inline-block;
-            padding: 3px 10px;
-            border-radius: 12px;
-            font-size: 0.8rem;
-            font-weight: bold;
-            margin: 2px;
-        }
-        
-        .route-checkbox, .date-checkbox {
-            margin: 5px 0;
-        }
-        
-        .select-all-btn {
-            font-size: 0.85rem;
-            padding: 5px 15px;
-        }
-        
-        /* ML Training Styles */
-        .log-platform.training {
-            background: #9c27b0;
-        }
-        
-        .card {
-            border: none;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-        }
-        
-        .sticky-top {
-            position: sticky;
-            top: 0;
-            z-index: 10;
-        }
-    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme_alt.css') }}">
 </head>
+
 <body>
     <div class="container-fluid main-container">
         <!-- Header -->
         <div class="header">
-            <h1><i class="bi bi-bus-front"></i> Booking Bus Prediction</h1>
+            <h1><i class="bi bi-bus-front"></i> Crawling</h1>
             <p class="mb-0">
-                <span class="platform-badge badge-traveloka">TRAVELOKA</span>
                 <span class="platform-badge badge-redbus">REDBUS</span>
             </p>
-            <p class="mt-2 mb-0" style="font-size: 0.95rem;">All-in-One Platform for Bus Data Collection & Comparison</p>
+            <p class="mt-2 mb-0" style="font-size: 0.95rem;">All-in-One Platform for Bus Data Collection & Comparison
+            </p>
         </div>
-        
+
         <!-- Main Navigation -->
         <div class="p-4">
             <ul class="nav nav-pills mb-4" id="mainTab" role="tablist">
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link active" id="crawlers-tab" data-bs-toggle="pill" data-bs-target="#crawlers" type="button">
+                    <button class="nav-link active" id="crawlers-tab" data-bs-toggle="pill" data-bs-target="#crawlers"
+                        type="button">
                         <i class="bi bi-gear-fill"></i> Crawlers
                     </button>
                 </li>
@@ -303,7 +37,8 @@
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="analytics-tab" data-bs-toggle="pill" data-bs-target="#analytics" type="button">
+                    <button class="nav-link" id="analytics-tab" data-bs-toggle="pill" data-bs-target="#analytics"
+                        type="button">
                         <i class="bi bi-graph-up"></i> Analytics
                     </button>
                 </li>
@@ -317,38 +52,15 @@
                         <i class="bi bi-terminal-fill"></i> Logs
                     </button>
                 </li>
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="training-tab" data-bs-toggle="pill" data-bs-target="#training" type="button">
-                        <i class="bi bi-cpu-fill"></i> Model Training
-                    </button>
-                </li>
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="predictions-tab" data-bs-toggle="pill" data-bs-target="#predictions" type="button">
-                        <i class="bi bi-graph-up-arrow"></i> Predictions
-                    </button>
-                </li>
-                <li class="nav-item" role="presentation">
-                    <a href="/routes" class="nav-link" style="color: #667eea;" target="_blank">
-                        <i class="bi bi-geo-alt-fill"></i> Routes Manager
-                    </a>
-                </li>
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="history-tab" data-bs-toggle="pill" data-bs-target="#history" type="button">
-                        <i class="bi bi-clock-history"></i> History
-                    </button>
-                </li>
             </ul>
-            
+
             <div class="tab-content" id="mainTabContent">
                 <!-- Crawlers Tab -->
                 <div class="tab-pane fade show active" id="crawlers" role="tabpanel">
                     <!-- Unified Crawler Form -->
                     <div class="crawler-section" style="max-width: 900px; margin: 0 auto;">
-                        <h3 class="text-center mb-3">
-                            <i class="bi bi-gear-fill"></i> Unified Bus Crawler
-                        </h3>
                         <p class="text-center text-muted mb-4">Select platforms, routes, and dates to scrape</p>
-                        
+
                         <!-- Platform Selection -->
                         <div class="mb-4">
                             <label class="form-label fw-bold">
@@ -356,13 +68,8 @@
                             </label>
                             <div class="d-flex gap-3">
                                 <div class="form-check form-check-inline">
-                                    <input class="form-check-input" type="checkbox" id="platform-traveloka" value="traveloka" checked>
-                                    <label class="form-check-label" for="platform-traveloka">
-                                        <i class="bi bi-airplane-fill text-primary"></i> Traveloka
-                                    </label>
-                                </div>
-                                <div class="form-check form-check-inline">
-                                    <input class="form-check-input" type="checkbox" id="platform-redbus" value="redbus" checked>
+                                    <input class="form-check-input" type="checkbox" id="platform-redbus" value="redbus"
+                                        checked>
                                     <label class="form-check-label" for="platform-redbus">
                                         <i class="bi bi-bus-front-fill text-danger"></i> Redbus
                                     </label>
@@ -370,7 +77,7 @@
                             </div>
                             <small class="text-muted">Select one or both platforms to crawl simultaneously</small>
                         </div>
-                        
+
                         <!-- Routes Selection -->
                         <div class="mb-4">
                             <label class="form-label fw-bold">
@@ -380,13 +87,14 @@
                                 <button class="btn btn-sm btn-outline-secondary" onclick="selectAllUnifiedRoutes(true)">
                                     <i class="bi bi-check-all"></i> Select All
                                 </button>
-                                <button class="btn btn-sm btn-outline-secondary" onclick="selectAllUnifiedRoutes(false)">
+                                <button class="btn btn-sm btn-outline-secondary"
+                                    onclick="selectAllUnifiedRoutes(false)">
                                     <i class="bi bi-x-circle"></i> Clear All
                                 </button>
                             </div>
                             <div id="unified-routes" class="mt-2"></div>
                         </div>
-                        
+
                         <!-- Dates Selection -->
                         <div class="mb-4">
                             <label class="form-label fw-bold">
@@ -403,69 +111,24 @@
                                 </div>
                             </div>
                         </div>
-                        
+
                         <!-- Start Button -->
                         <div class="mb-4">
-                            <button class="btn btn-success btn-lg w-100" id="unified-start-btn" onclick="startUnifiedCrawling()">
+                            <button class="btn btn-success btn-lg w-100" id="unified-start-btn"
+                                onclick="startUnifiedCrawling()">
                                 <i class="bi bi-play-fill"></i> Start Crawling
                             </button>
-                            <button class="btn btn-danger btn-lg w-100" id="unified-stop-btn" onclick="stopUnifiedCrawling()" style="display:none;">
+                            <button class="btn btn-danger btn-lg w-100" id="unified-stop-btn"
+                                onclick="stopUnifiedCrawling()" style="display:none;">
                                 <i class="bi bi-stop-fill"></i> Stop All
                             </button>
                         </div>
-                        
+
                         <!-- Progress Section -->
                         <div id="unified-progress-section" style="display:none;">
                             <hr>
                             <h5 class="mb-3">Crawling Progress</h5>
-                            
-                            <!-- Traveloka Progress -->
-                            <div id="traveloka-progress-section" style="display:none;">
-                                <div class="mb-3">
-                                    <div class="d-flex justify-content-between align-items-center mb-2">
-                                        <span class="fw-bold">
-                                            <i class="bi bi-airplane-fill text-primary"></i> Traveloka
-                                        </span>
-                                        <span id="traveloka-progress-text">0%</span>
-                                    </div>
-                                    <div class="progress">
-                                        <div class="progress-bar traveloka-progress" id="traveloka-progress-bar" 
-                                             role="progressbar" style="width: 0%"></div>
-                                    </div>
-                                    <div class="mt-2">
-                                        <div class="d-flex justify-content-between text-muted small">
-                                            <span id="traveloka-current-task"></span>
-                                            <span id="traveloka-eta" class="fw-bold"></span>
-                                        </div>
-                                        <div class="text-muted small mt-1">
-                                            <i class="bi bi-clock"></i> Elapsed: <span id="traveloka-elapsed">00:00:00</span> | 
-                                            Speed: <span id="traveloka-speed">0</span> tasks/min
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <div class="row mb-3">
-                                    <div class="col-4">
-                                        <div class="stats-card traveloka">
-                                            <div class="stats-number" id="traveloka-total">0</div>
-                                            <div class="text-muted small">Total</div>
-                                        </div>
-                                    </div>
-                                    <div class="col-4">
-                                        <div class="stats-card traveloka">
-                                            <div class="stats-number text-success" id="traveloka-success">0</div>
-                                            <div class="text-muted small">Success</div>
-                                        </div>
-                                    </div>
-                                    <div class="col-4">
-                                        <div class="stats-card traveloka">
-                                            <div class="stats-number text-danger" id="traveloka-failed">0</div>
-                                            <div class="text-muted small">Failed</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            
+
                             <!-- Redbus Progress -->
                             <div id="redbus-progress-section" style="display:none;">
                                 <div class="mb-3">
@@ -476,8 +139,8 @@
                                         <span id="redbus-progress-text">0%</span>
                                     </div>
                                     <div class="progress">
-                                        <div class="progress-bar redbus-progress" id="redbus-progress-bar" 
-                                             role="progressbar" style="width: 0%"></div>
+                                        <div class="progress-bar redbus-progress" id="redbus-progress-bar"
+                                            role="progressbar" style="width: 0%"></div>
                                     </div>
                                     <div class="mt-2">
                                         <div class="d-flex justify-content-between text-muted small">
@@ -485,12 +148,13 @@
                                             <span id="redbus-eta" class="fw-bold"></span>
                                         </div>
                                         <div class="text-muted small mt-1">
-                                            <i class="bi bi-clock"></i> Elapsed: <span id="redbus-elapsed">00:00:00</span> | 
+                                            <i class="bi bi-clock"></i> Elapsed: <span
+                                                id="redbus-elapsed">00:00:00</span> |
                                             Speed: <span id="redbus-speed">0</span> tasks/min
                                         </div>
                                     </div>
                                 </div>
-                                
+
                                 <div class="row mb-3">
                                     <div class="col-4">
                                         <div class="stats-card redbus">
@@ -515,7 +179,7 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <!-- Data Files Tab -->
                 <div class="tab-pane fade" id="data" role="tabpanel">
                     <div class="d-flex justify-content-between align-items-center mb-3">
@@ -528,7 +192,7 @@
                             </button>
                         </div>
                     </div>
-                    
+
                     <!-- Data view controls: files or database -->
                     <div id="data-view-controls" class="mb-3">
                         <div id="data-files-controls" style="display:block;">
@@ -540,7 +204,6 @@
                                     <label class="form-label small">Platform</label>
                                     <select id="data-platform-select" class="form-select form-select-sm">
                                         <option value="">All</option>
-                                        <option value="traveloka">Traveloka</option>
                                         <option value="redbus">Redbus</option>
                                     </select>
                                 </div>
@@ -556,7 +219,8 @@
                                 </div>
                                 <div class="col-md-3">
                                     <label class="form-label small">Bus Company</label>
-                                    <input type="text" id="data-filter-bus" class="form-control form-control-sm" placeholder="Company name">
+                                    <input type="text" id="data-filter-bus" class="form-control form-control-sm"
+                                        placeholder="Company name">
                                 </div>
                                 <div class="col-md-2 d-flex align-items-end">
                                     <button class="btn btn-sm btn-primary w-100" id="data-db-search">Search DB</button>
@@ -566,7 +230,7 @@
                     </div>
 
                     <div id="data-files-list"></div>
-                    
+
                     <!-- Data Preview Modal -->
                     <div class="modal fade" id="previewModal" tabindex="-1">
                         <div class="modal-dialog modal-xl">
@@ -588,17 +252,17 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <!-- Analytics Tab -->
                 <div class="tab-pane fade" id="analytics" role="tabpanel">
                     <h3><i class="bi bi-graph-up"></i> Data Analytics & Summary</h3>
-                    <p class="text-muted">Analyze bus distribution by company, type, and route with multiple crawl sessions per day</p>
-                    
+                    <p class="text-muted">Analyze bus distribution by company, type, and route with multiple crawl
+                        sessions per day</p>
+
                     <div class="row mb-3">
                         <div class="col-md-3">
                             <label class="form-label fw-bold">Platform:</label>
                             <select class="form-select" id="analytics-platform">
-                                <option value="traveloka">Traveloka</option>
                                 <option value="redbus">Redbus</option>
                             </select>
                         </div>
@@ -623,7 +287,7 @@
                             </button>
                         </div>
                     </div>
-                    
+
                     <div id="analytics-results">
                         <div class="text-center text-muted py-5">
                             <i class="bi bi-graph-up" style="font-size: 3rem;"></i>
@@ -631,7 +295,7 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <!-- Comparison Tab -->
                 <!-- <div class="tab-pane fade" id="compare" role="tabpanel">
                     <h3><i class="bi bi-diagram-3-fill"></i> Platform Comparison</h3>
@@ -641,16 +305,16 @@
                     
                     <div id="comparison-content"></div>
                 </div> -->
-                
+
                 <!-- Logs Tab -->
                 <div class="tab-pane fade" id="logs" role="tabpanel">
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <h3><i class="bi bi-card-list"></i> Activity Logs</h3>
                         <div>
                             <button class="btn btn-sm btn-outline-secondary" onclick="filterLogs('all')">All</button>
-                            <button class="btn btn-sm btn-outline-primary" onclick="filterLogs('traveloka')">Traveloka</button>
                             <button class="btn btn-sm btn-outline-danger" onclick="filterLogs('redbus')">Redbus</button>
-                            <button class="btn btn-sm btn-outline-info" onclick="filterLogs('training')">Training</button>
+                            <button class="btn btn-sm btn-outline-info"
+                                onclick="filterLogs('training')">Training</button>
                             <button class="btn btn-danger btn-sm" onclick="clearLogs()">
                                 <i class="bi bi-trash"></i> Clear
                             </button>
@@ -660,225 +324,13 @@
                         <div class="text-muted text-center">No logs yet. Start a crawler to see activity...</div>
                     </div>
                 </div>
-                
-                <!-- Model Training Tab -->
-                <div class="tab-pane fade" id="training" role="tabpanel">
-                    <h3><i class="bi bi-cpu-fill"></i> Model Training</h3>
-                    <p class="text-muted">Train Random Forest models for bus availability prediction</p>
-                    
-                    <div class="row">
-                        <div class="col-md-8">
-                            <div class="card mb-3">
-                                <div class="card-body">
-                                    <h5 class="card-title">Training Configuration</h5>
-                                    
-                                    <div class="mb-3">
-                                        <label for="training-days" class="form-label">Training Period (Days)</label>
-                                        <select class="form-select" id="training-days">
-                                            <option value="30">Last 30 days (Quick training)</option>
-                                            <option value="90" selected>Last 90 days (Recommended)</option>
-                                            <option value="180">Last 180 days (Comprehensive)</option>
-                                            <option value="365">Last 365 days (Full year)</option>
-                                        </select>
-                                        <div class="form-text">More data provides better accuracy but takes longer to train</div>
-                                    </div>
-                                    
-                                    <button class="btn btn-start" onclick="startTraining()" id="train-btn">
-                                        <i class="bi bi-play-fill"></i> Start Training
-                                    </button>
-                                    
-                                    <div id="training-progress" class="mt-3" style="display: none;">
-                                        <div class="progress">
-                                            <div class="progress-bar progress-bar-striped progress-bar-animated" 
-                                                 role="progressbar" 
-                                                 id="training-progress-bar"
-                                                 style="width: 0%"></div>
-                                        </div>
-                                        <p class="mt-2 mb-0"><small id="training-step">Initializing...</small></p>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="card">
-                                <div class="card-body">
-                                    <h5 class="card-title">Training Logs</h5>
-                                    <div class="log-container" id="training-logs" style="max-height: 300px;">
-                                        <div class="text-muted text-center">Start training to see logs...</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="col-md-4">
-                            <div class="card" id="training-results" style="display: none;">
-                                <div class="card-body">
-                                    <h5 class="card-title">Training Results</h5>
-                                    <div class="mb-3">
-                                        <label class="text-muted">Mean Absolute Error (MAE)</label>
-                                        <h3 id="result-mae" class="text-primary">-</h3>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="text-muted">Root Mean Square Error (RMSE)</label>
-                                        <h3 id="result-rmse" class="text-info">-</h3>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="text-muted">R² Score</label>
-                                        <h3 id="result-r2" class="text-success">-</h3>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="text-muted">Data Points</label>
-                                        <h4 id="result-datapoints">-</h4>
-                                    </div>
-                                    <p class="text-muted"><small id="result-timestamp">-</small></p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Predictions Tab -->
-                <div class="tab-pane fade" id="predictions" role="tabpanel">
-                    <h3><i class="bi bi-graph-up-arrow"></i> Generate Predictions</h3>
-                    <p class="text-muted">Use trained model to predict bus availability</p>
-                    
-                    <div class="row">
-                        <div class="col-md-8">
-                            <div class="card mb-3">
-                                <div class="card-body">
-                                    <h5 class="card-title">Prediction Configuration</h5>
-                                    
-                                    <div class="row">
-                                        <div class="col-md-6 mb-3">
-                                            <label for="prediction-route" class="form-label">Route (Optional)</label>
-                                            <select class="form-select" id="prediction-route">
-                                                <option value="">All Routes</option>
-                                            </select>
-                                            <div class="form-text">Leave as "All Routes" to predict for all available routes</div>
-                                        </div>
-                                        
-                                        <div class="col-md-6 mb-3">
-                                            <label for="prediction-type" class="form-label">Prediction Type</label>
-                                            <select class="form-select" id="prediction-type" onchange="togglePredictionType()">
-                                                <option value="days" selected>Days from today</option>
-                                                <option value="daterange">Specific date range</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- Days from today option -->
-                                    <div id="days-option">
-                                        <div class="mb-3">
-                                            <label for="prediction-days" class="form-label">Prediction Period</label>
-                                            <select class="form-select" id="prediction-days" onchange="toggleCustomDays()">
-                                                <option value="7" selected>Next 7 days (1 week)</option>
-                                                <option value="30">Next 30 days (1 month)</option>
-                                                <option value="90">Next 90 days (3 months)</option>
-                                                <option value="365">Next 365 days (1 year)</option>
-                                                <option value="custom">Custom days...</option>
-                                            </select>
-                                        </div>
-                                        
-                                        <div class="mb-3" id="custom-days-input" style="display: none;">
-                                            <label for="custom-days-value" class="form-label">Custom Days</label>
-                                            <input type="number" class="form-control" id="custom-days-value" min="1" max="365" value="14" placeholder="Enter number of days (1-365)">
-                                            <div class="form-text">Enter a number between 1 and 365</div>
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- Date range option -->
-                                    <div id="daterange-option" style="display: none;">
-                                        <div class="row mb-3">
-                                            <div class="col-md-6">
-                                                <label for="start-date" class="form-label">Start Date (Route Date)</label>
-                                                <input type="date" class="form-control" id="start-date">
-                                                <div class="form-text">Departure date of the bus</div>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <label for="end-date" class="form-label">End Date (Route Date)</label>
-                                                <input type="date" class="form-control" id="end-date">
-                                                <div class="form-text">Last departure date to predict</div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <button class="btn btn-start" onclick="generatePredictions()" id="predict-btn">
-                                        <i class="bi bi-lightning-fill"></i> Generate Predictions
-                                    </button>
-                                </div>
-                            </div>
-                            
-                            <div class="card" id="prediction-results" style="display: none;">
-                                <div class="card-body">
-                                    <h5 class="card-title">Prediction Results</h5>
-                                    <p class="text-muted">
-                                        Session ID: <strong id="session-id">-</strong> | 
-                                        Total Predictions: <strong id="total-predictions">-</strong>
-                                    </p>
-                                    
-                                    <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
-                                        <table class="table table-sm table-hover">
-                                            <thead class="table-light sticky-top">
-                                                <tr>
-                                                    <th>Date</th>
-                                                    <th>Day</th>
-                                                    <th>Route</th>
-                                                    <th>Platform</th>
-                                                    <th>Bus Company</th>
-                                                    <th>Total</th>
-                                                    <th>VIP</th>
-                                                    <th>Executive</th>
-                                                    <th>Other</th>
-                                                    <th>Depart Time</th>
-                                                    <th>Arrive Time</th>
-                                                    <th>Price (IDR)</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody id="predictions-table">
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="col-md-4">
-                            <div class="card">
-                                <div class="card-body">
-                                    <h5 class="card-title">Database Stats</h5>
-                                    <div id="db-stats-predictions">
-                                        <p class="text-muted">Loading...</p>
-                                    </div>
-                                    <button class="btn btn-sm btn-outline-primary" onclick="loadDatabaseStats()">
-                                        <i class="bi bi-arrow-clockwise"></i> Refresh
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Prediction History Tab -->
-                <div class="tab-pane fade" id="history" role="tabpanel">
-                    <h3><i class="bi bi-clock-history"></i> Prediction History</h3>
-                    <p class="text-muted">View past prediction sessions</p>
-                    
-                    <button class="btn btn-primary mb-3" onclick="loadPredictionHistory()">
-                        <i class="bi bi-arrow-clockwise"></i> Load History
-                    </button>
-                    
-                    <div id="history-content">
-                        <div class="text-center text-muted py-5">
-                            <i class="bi bi-clock-history" style="font-size: 3rem;"></i>
-                            <p class="mt-3">Click "Load History" to view past predictions</p>
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
     </div>
-    
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <script src="{{ url_for('static', filename='script_unified.js') }}"></script>
 </body>
+
 </html>

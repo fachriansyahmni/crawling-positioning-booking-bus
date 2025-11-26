@@ -39,9 +39,7 @@ def import_data(db, args):
         # Import single file
         platform = args.platform or 'auto'
         if platform == 'auto':
-            if 'traveloka' in args.file.lower():
-                platform = 'traveloka'
-            elif 'redbus' in args.file.lower():
+            if 'redbus' in args.file.lower():
                 platform = 'redbus'
             else:
                 print("❌ Cannot auto-detect platform. Please specify with --platform")
@@ -103,7 +101,7 @@ def export_all(db, args):
     print(f"\n📤 Exporting all data to {output_dir}/...")
     
     # Export by platform
-    for platform in ['traveloka', 'redbus']:
+    for platform in ['redbus']:
         df = db.query_data(platform=platform, limit=1000000)  # Get all
         if not df.empty:
             output_file = os.path.join(output_dir, f'{platform}_all_data.csv')
@@ -135,26 +133,24 @@ def interactive_mode(db):
             
         elif choice == '2':
             csv_path = input("CSV file path: ").strip()
-            platform = input("Platform (traveloka/redbus/auto): ").strip().lower() or 'auto'
+            platform = input("Platform (redbus): ").strip().lower() or 'auto'
             
             if not os.path.exists(csv_path):
                 print("❌ File not found")
                 continue
             
             if platform == 'auto':
-                if 'traveloka' in csv_path.lower():
-                    platform = 'traveloka'
-                elif 'redbus' in csv_path.lower():
+                if 'redbus' in csv_path.lower():
                     platform = 'redbus'
                 else:
-                    platform = input("Cannot auto-detect. Specify platform (traveloka/redbus): ").strip().lower()
+                    platform = input("Cannot auto-detect. Specify platform (redbus): ").strip().lower()
             
             stats = db.import_from_csv(csv_path, platform)
             print(f"\n✅ Imported: {stats['inserted']}, Duplicates: {stats['duplicates']}, Errors: {stats['errors']}")
             
         elif choice == '3':
             directory = input("Directory path (default: data): ").strip() or 'data'
-            platform = input("Platform filter (traveloka/redbus/auto): ").strip().lower() or 'auto'
+            platform = input("Platform filter (redbus): ").strip().lower() or 'auto'
             
             if not os.path.exists(directory):
                 print("❌ Directory not found")
@@ -164,7 +160,7 @@ def interactive_mode(db):
             stats = db.import_from_directory(directory, platform_filter)
             
         elif choice == '4':
-            platform = input("Platform (traveloka/redbus/all): ").strip().lower()
+            platform = input("Platform (redbus/all): ").strip().lower()
             route = input("Route name (or leave empty): ").strip() or None
             date = input("Date YYYY-MM-DD (or leave empty): ").strip() or None
             limit = input("Limit (default: 100): ").strip()
@@ -191,7 +187,7 @@ def interactive_mode(db):
             output_dir = input("Output directory (default: exports): ").strip() or 'exports'
             os.makedirs(output_dir, exist_ok=True)
             
-            for platform in ['traveloka', 'redbus']:
+            for platform in ['redbus']:
                 df = db.query_data(platform=platform, limit=1000000)
                 if not df.empty:
                     output_file = os.path.join(output_dir, f'{platform}_all_data.csv')
@@ -216,13 +212,13 @@ Examples:
   python db_manager.py --stats
   
   # Import single CSV file
-  python db_manager.py --import-file data/traveloka/traveloka_Jakarta-Semarang-15.csv --platform traveloka
+  python db_manager.py --import-file data/traveloka_Jakarta-Semarang-15.csv --platform traveloka
   
   # Import entire directory (auto-detect platform)
-  python db_manager.py --import-dir data/traveloka
+  python db_manager.py --import-dir data/redbus
   
   # Query data
-  python db_manager.py --query --platform traveloka --route "Jakarta-Semarang" --limit 50
+  python db_manager.py --query --platform redbus --route "Jakarta-Semarang" --limit 50
   
   # Export all data
   python db_manager.py --export-all --output exports
@@ -235,7 +231,7 @@ Examples:
     parser.add_argument('--stats', action='store_true', help='Show database statistics')
     parser.add_argument('--import-file', dest='file', help='Import single CSV file')
     parser.add_argument('--import-dir', dest='directory', help='Import all CSV files from directory')
-    parser.add_argument('--platform', choices=['traveloka', 'redbus', 'auto'], default='auto',
+    parser.add_argument('--platform', choices=['redbus', 'auto'], default='auto',
                        help='Platform filter')
     parser.add_argument('--query', action='store_true', help='Query data')
     parser.add_argument('--route', help='Filter by route name')

@@ -13,6 +13,7 @@ import pandas as pd
 import json
 import os
 import sys
+import re
 from datetime import datetime
 
 # Available routes (using placeholders for date components)
@@ -78,6 +79,8 @@ def initialize_driver(headless=None):
         headless: Override headless setting (True/False). If None, uses config file.
     """
     config = load_config()
+
+    # chrome_driver_path = "/usr/bin/chromedriver"
     
     # Get selenium config
     selenium_config = config.get('selenium', {})
@@ -91,9 +94,10 @@ def initialize_driver(headless=None):
     # Headless mode for VPS
     if headless:
         options.add_argument('--headless=new')  # New headless mode
-        options.add_argument('--disable-gpu') if selenium_config.get('disable_gpu', True) else None
-        options.add_argument('--no-sandbox') if selenium_config.get('no_sandbox', True) else None
-        options.add_argument('--disable-dev-shm-usage') if selenium_config.get('disable_dev_shm', True) else None
+        options.add_argument('--disable-gpu') 
+        options.add_argument('--no-sandbox') 
+        options.add_argument('--disable-dev-shm-usage')
+        options.add_argument("--remote-debugging-port=9222")
         options.add_argument('--window-size=1920,1080')
     
     # Anti-detection settings (works for both headless and visible)
@@ -103,7 +107,9 @@ def initialize_driver(headless=None):
     options.add_experimental_option('useAutomationExtension', False)
     options.add_argument("--disable-blink-features=AutomationControlled")
     
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+    # service = Service(chrome_driver_path)
+    service = Service(ChromeDriverManager().install())
+    driver = webdriver.Chrome(service=service, options=options)
     return driver
 
 def load_page(driver, url):
@@ -194,6 +200,29 @@ def get_bus_detail(driver, url, route, date_str):
                     seat_availability_text = item.find_element(By.XPATH, ".//div[contains(@class, 'seat-left')]").text
                 except NoSuchElementException:
                     seat_availability_text = 'N/A' # Nilai default
+                try:
+                    # Extract light-g-bar / green-bar information
+                    # Prefer the child `.green-bar` if present and try to parse a `w-<num>` class
+                    try:
+                        light_g_elem = item.find_element(By.CSS_SELECTOR, ".light-g-bar .green-bar")
+                        light_g_class = light_g_elem.get_attribute("class") or ""
+                        m = re.search(r"w-(\d+)", light_g_class)
+                        if m:
+                            # store numeric part (e.g. w-10 -> 10)
+                            light_g_value = int(m.group(1))
+                        else:
+                            # fallback to inline style or text content
+                            style = light_g_elem.get_attribute("style")
+                            light_g_value = style if style else (light_g_elem.text or light_g_class)
+                    except NoSuchElementException:
+                        # fallback: any content inside .light-g-bar
+                        try:
+                            lg = item.find_element(By.CSS_SELECTOR, ".light-g-bar")
+                            light_g_value = lg.text or lg.get_attribute("innerHTML") or 'N/A'
+                        except NoSuchElementException:
+                            light_g_value = 'N/A'
+                except Exception:
+                    light_g_value = 'N/A'
                 bus_detail = {
                     "Route_Name": route,
                     "Route_Date": date_str,
@@ -204,6 +233,7 @@ def get_bus_detail(driver, url, route, date_str):
                     "Duration": duration,
                     "Reaching_Time": reaching_time,
                     "Star_Rating": star_rating,
+                    "Light_G_Bar": light_g_value,
                     "Price": price_numeric,
                     "Seat_Availability": seat_availability_text
                 }
@@ -410,3 +440,4 @@ if __name__ == "__main__":
         print(f"\n✓ Total data successfully scraped: {len(all_bus_details)} buses")
     else:
         print("\n⚠ No data was scraped.")
+

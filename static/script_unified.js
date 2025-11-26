@@ -28,33 +28,32 @@ let timeTracking = {
 const workerColors = ['#0d6efd', '#198754', '#ffc107', '#dc3545', '#6f42c1'];
 
 // Initialize
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     loadUnifiedRoutes();
-    refreshData();
-    loadAvailableRoutes();  // Load routes for prediction
+    refreshData();  // Load routes for prediction
     initDataViewControls();
-    
+
     // Auto-refresh status every 2 seconds
     setInterval(updateStatus, 2000);
 });
 
 // Socket.IO events
-socket.on('connected', function(data) {
+socket.on('connected', function (data) {
     console.log('Connected:', data.message);
 });
 
-socket.on('log_update', function(log) {
+socket.on('log_update', function (log) {
     addLogEntry(log);
 });
 
-socket.on('progress_update', function(data) {
+socket.on('progress_update', function (data) {
     updateProgress(data);
 });
 
-socket.on('training_progress', function(data) {
+socket.on('training_progress', function (data) {
     const progressBar = document.getElementById('training-progress-bar');
     const stepText = document.getElementById('training-step');
-    
+
     if (progressBar) {
         progressBar.style.width = data.progress + '%';
     }
@@ -63,76 +62,18 @@ socket.on('training_progress', function(data) {
     }
 });
 
-socket.on('task_start', function(data) {
+socket.on('task_start', function (data) {
     if (data.platform === 'redbus') {
         updateRedbusWorkers();
     }
 });
-
-// Load Traveloka routes
-async function loadTravelokaRoutes() {
-    try {
-        const response = await fetch('/api/routes/traveloka');
-        travelokaRouteInfo = await response.json();
-        
-        const container = document.getElementById('traveloka-routes');
-        container.innerHTML = '';
-        
-        travelokaRouteInfo.forEach((routeSet, idx) => {
-            const card = document.createElement('div');
-            card.className = 'card mb-2';
-            card.innerHTML = `
-                <div class="card-body">
-                    <h6 class="card-title">Route Set ${idx + 1}</h6>
-                    <div class="mb-2">
-                        <strong>Routes:</strong>
-                        <div class="d-flex gap-2 mb-1">
-                            <button class="btn btn-sm btn-outline-secondary" onclick="selectAllRoutes(${idx}, true)">All</button>
-                            <button class="btn btn-sm btn-outline-secondary" onclick="selectAllRoutes(${idx}, false)">None</button>
-                        </div>
-                        ${routeSet.routes.map(route => `
-                            <div class="form-check route-checkbox">
-                                <input class="form-check-input traveloka-route" type="checkbox" 
-                                       id="tr-${idx}-${route}" data-set="${idx}" value="${route}">
-                                <label class="form-check-label" for="tr-${idx}-${route}">${route}</label>
-                            </div>
-                        `).join('')}
-                    </div>
-                    <div>
-                        <strong>Date Range:</strong>
-                        <div class="row g-2 mt-1">
-                            <div class="col-md-6">
-                                <label class="form-label small">Start Date:</label>
-                                <input type="date" class="form-control form-control-sm traveloka-date-start" 
-                                       data-set="${idx}" id="tds-${idx}">
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label small">End Date:</label>
-                                <input type="date" class="form-control form-control-sm traveloka-date-end" 
-                                       data-set="${idx}" id="tde-${idx}">
-                            </div>
-                        </div>
-                        <div class="mt-2">
-                            <small class="text-muted">
-                                <i class="bi bi-info-circle"></i> Leave empty to use all available dates
-                            </small>
-                        </div>
-                    </div>
-                </div>
-            `;
-            container.appendChild(card);
-        });
-    } catch (error) {
-        console.error('Error loading Traveloka routes:', error);
-    }
-}
 
 // Load Redbus routes
 async function loadRedbusRoutes() {
     try {
         const response = await fetch('/api/routes/redbus');
         redbusRouteInfo = await response.json();
-        
+
         const routesContainer = document.getElementById('redbus-routes');
         routesContainer.innerHTML = redbusRouteInfo.routes.map(route => `
             <div class="form-check route-checkbox">
@@ -141,7 +82,7 @@ async function loadRedbusRoutes() {
                 <label class="form-check-label" for="rr-${route}">${route}</label>
             </div>
         `).join('');
-        
+
         const datesContainer = document.getElementById('redbus-dates');
         datesContainer.innerHTML = `
             <div class="row g-2">
@@ -189,27 +130,26 @@ function selectAllUnifiedRoutes(select) {
 // Start Unified Crawling
 async function startUnifiedCrawling() {
     // Get selected platforms
-    const travelokaChecked = document.getElementById('platform-traveloka').checked;
     const redbusChecked = document.getElementById('platform-redbus').checked;
-    
-    if (!travelokaChecked && !redbusChecked) {
+
+    if (!redbusChecked) {
         alert('Please select at least one platform!');
         return;
     }
-    
+
     // Get selected routes
     const selectedRoutes = Array.from(document.querySelectorAll('.unified-route:checked'))
         .map(cb => cb.value);
-    
+
     if (selectedRoutes.length === 0) {
         alert('Please select at least one route!');
         return;
     }
-    
+
     // Get date range
     const startDate = document.getElementById('unified-date-start').value;
     const endDate = document.getElementById('unified-date-end').value;
-    
+
     let selectedDates = [];
     if (startDate && endDate) {
         selectedDates = generateDateRange(startDate, endDate);
@@ -218,34 +158,25 @@ async function startUnifiedCrawling() {
         const defaultStart = '2025-12-15';
         const defaultEnd = '2025-12-31';
         selectedDates = generateDateRange(defaultStart, defaultEnd);
-    } 
-    
+    }
+
     // Show progress section
     document.getElementById('unified-progress-section').style.display = 'block';
     document.getElementById('unified-start-btn').style.display = 'none';
     document.getElementById('unified-stop-btn').style.display = 'block';
-    
-    // Reset time tracking for selected platforms
-    if (travelokaChecked) {
-        resetTimeTracking('traveloka');
-    }
+
     if (redbusChecked) {
         resetTimeTracking('redbus');
     }
-    
+
     // Start crawling for selected platforms
     const promises = [];
-    
-    if (travelokaChecked) {
-        document.getElementById('traveloka-progress-section').style.display = 'block';
-        promises.push(startTravelokaCrawling(selectedRoutes, selectedDates));
-    }
-    
+
     if (redbusChecked) {
         document.getElementById('redbus-progress-section').style.display = 'block';
         promises.push(startRedbusCrawling(selectedRoutes, selectedDates));
     }
-    
+
     // Wait for all to start
     try {
         await Promise.all(promises);
@@ -261,24 +192,24 @@ async function startTravelokaCrawling(routes, dates) {
     // For Traveloka, we need to use route set 0 (December 2025)
     const routesData = { '0': routes };
     const datesData = { '0': dates };
-    
+
     const data = {
         routes: routesData,
         dates: datesData
     };
-    
+
     try {
         const response = await fetch('/api/start/traveloka', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
-        
+
         if (!response.ok) {
             const errorData = await response.json();
             throw new Error(errorData.error || 'Failed to start Traveloka crawler');
         }
-        
+
         const result = await response.json();
         console.log('Traveloka started:', result);
     } catch (error) {
@@ -293,19 +224,19 @@ async function startRedbusCrawling(routes, dates) {
         routes: routes,
         dates: dates
     };
-    
+
     try {
         const response = await fetch('/api/start/redbus', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
-        
+
         if (!response.ok) {
             const errorData = await response.json();
             throw new Error(errorData.error || 'Failed to start Redbus crawler');
         }
-        
+
         const result = await response.json();
         console.log('Redbus started:', result);
     } catch (error) {
@@ -317,17 +248,7 @@ async function startRedbusCrawling(routes, dates) {
 // Stop Unified Crawling
 async function stopUnifiedCrawling() {
     const promises = [];
-    
-    // Stop both platforms
-    if (document.getElementById('traveloka-progress-section').style.display !== 'none') {
-        promises.push(fetch('/api/stop/traveloka', { method: 'POST' }));
-        // Stop timer
-        if (timeTracking.traveloka.intervalId) {
-            clearInterval(timeTracking.traveloka.intervalId);
-            timeTracking.traveloka.intervalId = null;
-        }
-    }
-    
+
     if (document.getElementById('redbus-progress-section').style.display !== 'none') {
         promises.push(fetch('/api/stop/redbus', { method: 'POST' }));
         // Stop timer
@@ -336,14 +257,14 @@ async function stopUnifiedCrawling() {
             timeTracking.redbus.intervalId = null;
         }
     }
-    
+
     try {
         await Promise.all(promises);
         console.log('All crawlers stopped');
     } catch (error) {
         console.error('Error stopping crawlers:', error);
     }
-    
+
     // Hide buttons
     document.getElementById('unified-start-btn').style.display = 'block';
     document.getElementById('unified-stop-btn').style.display = 'none';
@@ -366,11 +287,11 @@ function selectAll(platform, type, select) {
 // Helper to generate date range
 function generateDateRange(startDate, endDate) {
     if (!startDate || !endDate) return [];
-    
+
     const dates = [];
     const current = new Date(startDate);
     const end = new Date(endDate);
-    
+
     while (current <= end) {
         // Format as YYYY-MM-DD (full date)
         const year = current.getFullYear();
@@ -380,55 +301,22 @@ function generateDateRange(startDate, endDate) {
         dates.push(fullDate);
         current.setDate(current.getDate() + 1);
     }
-    
+
     return dates;
 }
 
 // Start crawling
 async function startCrawling(platform) {
     let data = {};
-    
-    if (platform === 'traveloka') {
-        // Collect selected routes and dates
-        const routesData = {};
-        const datesData = {};
-        
-        travelokaRouteInfo.forEach((routeSet, idx) => {
-            const selectedRoutes = Array.from(document.querySelectorAll(`.traveloka-route[data-set="${idx}"]:checked`))
-                .map(cb => cb.value);
-            
-            // Get date range
-            const startDate = document.querySelector(`.traveloka-date-start[data-set="${idx}"]`).value;
-            const endDate = document.querySelector(`.traveloka-date-end[data-set="${idx}"]`).value;
-            
-            let selectedDates = [];
-            if (startDate && endDate) {
-                selectedDates = generateDateRange(startDate, endDate);
-            } else {
-                // Use all available dates from routeSet if no date range specified
-                selectedDates = routeSet.dates;
-            }
-            
-            if (selectedRoutes.length > 0 && selectedDates.length > 0) {
-                routesData[idx] = selectedRoutes;
-                datesData[idx] = selectedDates;
-            }
-        });
-        
-        if (Object.keys(routesData).length === 0) {
-            alert('Please select at least one route and specify dates!');
-            return;
-        }
-        
-        data = { routes: routesData, dates: datesData };
-    } else if (platform === 'redbus') {
+
+    if (platform === 'redbus') {
         const selectedRoutes = Array.from(document.querySelectorAll('.redbus-route:checked'))
             .map(cb => cb.value);
-        
+
         // Get date range
         const startDate = document.getElementById('redbus-date-start').value;
         const endDate = document.getElementById('redbus-date-end').value;
-        
+
         let selectedDates = [];
         if (startDate && endDate) {
             selectedDates = generateDateRange(startDate, endDate);
@@ -436,32 +324,32 @@ async function startCrawling(platform) {
             // Use all available dates if no date range specified
             selectedDates = redbusRouteInfo.dates;
         }
-        
+
         if (selectedRoutes.length === 0 || selectedDates.length === 0) {
             alert('Please select at least one route and specify dates!');
             return;
         }
-        
+
         data = {
             routes: selectedRoutes,
             dates: selectedDates
         };
     }
-    
+
     try {
         const response = await fetch(`/api/start/${platform}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
-        
+
         const result = await response.json();
-        
+
         if (response.ok) {
             document.getElementById(`${platform}-start-btn`).style.display = 'none';
             document.getElementById(`${platform}-stop-btn`).style.display = 'block';
             document.getElementById(`${platform}-progress-container`).style.display = 'block';
-            
+
             addLogEntry({
                 platform: platform,
                 level: 'info',
@@ -483,9 +371,9 @@ async function stopCrawling(platform) {
         const response = await fetch(`/api/stop/${platform}`, {
             method: 'POST'
         });
-        
+
         const result = await response.json();
-        
+
         if (response.ok) {
             addLogEntry({
                 platform: platform,
@@ -506,13 +394,10 @@ async function updateStatus() {
     try {
         const response = await fetch('/api/status');
         const status = await response.json();
-        
-        // Update Traveloka
-        updatePlatformStatus('traveloka', status.traveloka);
-        
+
         // Update Redbus
         updatePlatformStatus('redbus', status.redbus);
-        
+
     } catch (error) {
         console.error('Error updating status:', error);
     }
@@ -523,7 +408,7 @@ function updatePlatformStatus(platform, status) {
     document.getElementById(`${platform}-total`).textContent = status.stats.total_scraped;
     document.getElementById(`${platform}-success`).textContent = status.stats.successful;
     document.getElementById(`${platform}-failed`).textContent = status.stats.failed;
-    
+
     // Check if both platforms are stopped
     if (!status.is_running) {
         // Check if unified UI is visible
@@ -535,7 +420,7 @@ function updatePlatformStatus(platform, status) {
                 .then(allStatus => {
                     const travelokaStopped = !allStatus.traveloka.is_running;
                     const redbusStopped = !allStatus.redbus.is_running;
-                    
+
                     if (travelokaStopped && redbusStopped) {
                         // Both stopped, show start button
                         document.getElementById('unified-start-btn').style.display = 'block';
@@ -550,17 +435,17 @@ function updateProgress(data) {
     const platform = data.platform;
     const progressBar = document.getElementById(`${platform}-progress-bar`);
     const progressText = document.getElementById(`${platform}-progress-text`);
-    
+
     progressBar.style.width = `${data.progress}%`;
     progressBar.textContent = `${data.progress}%`;
     progressText.textContent = `${data.completed}/${data.total} (${data.progress}%)`;
-    
+
     // Initialize time tracking when first task starts
     if (data.completed === 1 && !timeTracking[platform].startTime) {
         timeTracking[platform].startTime = new Date();
         timeTracking[platform].lastUpdate = new Date();
         timeTracking[platform].elapsedSeconds = 0;
-        
+
         // Start elapsed time counter
         if (timeTracking[platform].intervalId) {
             clearInterval(timeTracking[platform].intervalId);
@@ -569,21 +454,21 @@ function updateProgress(data) {
             updateElapsedTime(platform);
         }, 1000);
     }
-    
+
     // Calculate and display time estimates
     if (timeTracking[platform].startTime && data.completed > 0) {
         const now = new Date();
         const elapsedMs = now - timeTracking[platform].startTime;
         const elapsedMinutes = elapsedMs / 1000 / 60;
         const tasksRemaining = data.total - data.completed;
-        
+
         // Calculate speed (tasks per minute)
         const speed = data.completed / elapsedMinutes;
         const speedElement = document.getElementById(`${platform}-speed`);
         if (speedElement) {
             speedElement.textContent = speed.toFixed(2);
         }
-        
+
         // Calculate ETA
         if (tasksRemaining > 0 && speed > 0) {
             const etaMinutes = tasksRemaining / speed;
@@ -605,7 +490,7 @@ function updateProgress(data) {
             }
         }
     }
-    
+
     // Update current task display
     const taskContainer = document.getElementById(`${platform}-current-task`);
     if (taskContainer && data.current_task) {
@@ -616,11 +501,11 @@ function updateProgress(data) {
 // Helper function to update elapsed time display
 function updateElapsedTime(platform) {
     if (!timeTracking[platform].startTime) return;
-    
+
     const now = new Date();
     const elapsedMs = now - timeTracking[platform].startTime;
     const elapsedSeconds = Math.floor(elapsedMs / 1000);
-    
+
     const elapsedElement = document.getElementById(`${platform}-elapsed`);
     if (elapsedElement) {
         elapsedElement.textContent = formatTime(elapsedSeconds);
@@ -632,7 +517,7 @@ function formatTime(seconds) {
     const hrs = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
     const secs = Math.floor(seconds % 60);
-    
+
     return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 }
 
@@ -643,23 +528,23 @@ function resetTimeTracking(platform) {
         clearInterval(timeTracking[platform].intervalId);
         timeTracking[platform].intervalId = null;
     }
-    
+
     // Reset values
     timeTracking[platform].startTime = null;
     timeTracking[platform].lastUpdate = null;
     timeTracking[platform].elapsedSeconds = 0;
-    
+
     // Reset UI elements
     const elapsedElement = document.getElementById(`${platform}-elapsed`);
     if (elapsedElement) {
         elapsedElement.textContent = '00:00:00';
     }
-    
+
     const speedElement = document.getElementById(`${platform}-speed`);
     if (speedElement) {
         speedElement.textContent = '0';
     }
-    
+
     const etaElement = document.getElementById(`${platform}-eta`);
     if (etaElement) {
         etaElement.textContent = '';
@@ -671,14 +556,14 @@ function addLogEntry(log) {
     if (currentLogFilter !== 'all' && log.platform !== currentLogFilter) {
         return;
     }
-    
+
     const container = document.getElementById('log-container');
-    
+
     // Clear placeholder
     if (container.querySelector('.text-muted.text-center')) {
         container.innerHTML = '';
     }
-    
+
     const logEntry = document.createElement('div');
     logEntry.className = `log-entry log-${log.level}`;
     logEntry.innerHTML = `
@@ -686,10 +571,10 @@ function addLogEntry(log) {
         <span class="log-platform ${log.platform}">${log.platform.toUpperCase()}</span>
         ${log.message}
     `;
-    
+
     container.appendChild(logEntry);
     container.scrollTop = container.scrollHeight;
-    
+
     // Also handle training logs if applicable
     if (log.platform === 'training') {
         const trainingLogsDiv = document.getElementById('training-logs');
@@ -703,7 +588,7 @@ function addLogEntry(log) {
             `;
             trainingLogsDiv.appendChild(entry);
             trainingLogsDiv.scrollTop = trainingLogsDiv.scrollHeight;
-            
+
             // Keep only last 50 entries
             while (trainingLogsDiv.children.length > 50) {
                 trainingLogsDiv.removeChild(trainingLogsDiv.firstChild);
@@ -716,7 +601,7 @@ function filterLogs(filter) {
     currentLogFilter = filter;
     const container = document.getElementById('log-container');
     const entries = container.querySelectorAll('.log-entry');
-    
+
     entries.forEach(entry => {
         if (filter === 'all') {
             entry.style.display = '';
@@ -739,18 +624,18 @@ async function refreshData() {
 
 async function loadDataFiles(filter = 'all') {
     currentDataFilter = filter;
-    
+
     try {
         const response = await fetch(`/api/data/${filter}`);
         const files = await response.json();
-        
+
         const container = document.getElementById('data-files-list');
-        
+
         if (files.length === 0) {
             container.innerHTML = '<div class="alert alert-info">No data files found</div>';
             return;
         }
-        
+
         container.innerHTML = files.map(file => `
             <div class="file-item">
                 <div class="row align-items-center">
@@ -789,15 +674,15 @@ async function previewFile(filename) {
     try {
         const response = await fetch(`/api/data/preview/${filename}`);
         const data = await response.json();
-        
+
         if (!response.ok) {
             alert(data.error || 'Error loading preview');
             return;
         }
-        
+
         // Update modal title
         document.getElementById('previewModalLabel').textContent = `Preview: ${filename}`;
-        
+
         // Update stats
         const statsHtml = `
             <div class="row">
@@ -830,24 +715,24 @@ async function previewFile(filename) {
             </div>
         `;
         document.getElementById('preview-stats').innerHTML = statsHtml;
-        
+
         // Update table
         const table = document.getElementById('preview-table');
         const thead = table.querySelector('thead');
         const tbody = table.querySelector('tbody');
-        
+
         // Headers
         thead.innerHTML = `<tr>${data.columns.map(col => `<th>${col}</th>`).join('')}</tr>`;
-        
+
         // Rows (first 20)
-        tbody.innerHTML = data.preview.map(row => 
+        tbody.innerHTML = data.preview.map(row =>
             `<tr>${data.columns.map(col => `<td>${row[col] || ''}</td>`).join('')}</tr>`
         ).join('');
-        
+
         // Show modal
         const modal = new bootstrap.Modal(document.getElementById('previewModal'));
         modal.show();
-        
+
     } catch (error) {
         console.error('Error previewing file:', error);
         alert('Error loading preview');
@@ -1030,14 +915,14 @@ async function loadComparison() {
     try {
         const response = await fetch('/api/compare');
         const comparison = await response.json();
-        
+
         if (!response.ok) {
             alert(comparison.error || 'Error generating comparison');
             return;
         }
-        
+
         const container = document.getElementById('comparison-content');
-        
+
         let html = `
             <div class="row mb-4">
                 <div class="col-md-6">
@@ -1066,9 +951,9 @@ async function loadComparison() {
                         <div class="mt-3">
                             <strong>Date Coverage:</strong>
                             <div class="mt-2">
-                                ${comparison.traveloka.date_coverage.map(d => 
-                                    `<span class="badge bg-secondary m-1">${d}</span>`
-                                ).join('')}
+                                ${comparison.traveloka.date_coverage.map(d =>
+            `<span class="badge bg-secondary m-1">${d}</span>`
+        ).join('')}
                             </div>
                         </div>
                     </div>
@@ -1100,9 +985,9 @@ async function loadComparison() {
                         <div class="mt-3">
                             <strong>Date Coverage:</strong>
                             <div class="mt-2">
-                                ${comparison.redbus.date_coverage.map(d => 
-                                    `<span class="badge bg-secondary m-1">${d}</span>`
-                                ).join('')}
+                                ${comparison.redbus.date_coverage.map(d =>
+            `<span class="badge bg-secondary m-1">${d}</span>`
+        ).join('')}
                             </div>
                         </div>
                     </div>
@@ -1123,9 +1008,9 @@ async function loadComparison() {
                         </thead>
                         <tbody>
                             ${comparison.comparison.map(item => {
-                                const diff = item.traveloka_records - item.redbus_records;
-                                const diffClass = diff > 0 ? 'text-primary' : diff < 0 ? 'text-danger' : 'text-muted';
-                                return `
+            const diff = item.traveloka_records - item.redbus_records;
+            const diffClass = diff > 0 ? 'text-primary' : diff < 0 ? 'text-danger' : 'text-muted';
+            return `
                                     <tr>
                                         <td>${item.route}</td>
                                         <td class="text-center">${item.traveloka_records}</td>
@@ -1133,15 +1018,15 @@ async function loadComparison() {
                                         <td class="text-center ${diffClass}">${diff > 0 ? '+' : ''}${diff}</td>
                                     </tr>
                                 `;
-                            }).join('')}
+        }).join('')}
                         </tbody>
                     </table>
                 </div>
             </div>
         `;
-        
+
         container.innerHTML = html;
-        
+
     } catch (error) {
         console.error('Error loading comparison:', error);
         alert('Error generating comparison');
@@ -1153,27 +1038,27 @@ async function generateAnalytics() {
     const platform = document.getElementById('analytics-platform').value;
     const route = document.getElementById('analytics-route').value;
     const dateInput = document.getElementById('analytics-date').value;
-    
+
     if (!dateInput) {
         alert('Please select a date');
         return;
     }
-    
+
     // Use full date (YYYY-MM-DD format)
     const dateStr = dateInput;
-    
+
     try {
         const response = await fetch(`/api/analytics?platform=${platform}&route=${route}&date=${dateStr}`);
-        
+
         if (!response.ok) {
             const error = await response.json();
             alert(error.error || 'No data found');
             return;
         }
-        
+
         const analytics = await response.json();
         displayAnalytics(analytics);
-        
+
     } catch (error) {
         console.error('Error generating analytics:', error);
         alert('Error generating analytics report');
@@ -1182,31 +1067,31 @@ async function generateAnalytics() {
 
 function displayAnalytics(analytics) {
     const container = document.getElementById('analytics-results');
-    
+
     // Get all companies and bus types
     const companies = Object.keys(analytics.summary.bus_companies).sort();
     const allBusTypes = new Set();
-    
+
     Object.values(analytics.summary.bus_types_by_company).forEach(types => {
         Object.keys(types).forEach(type => allBusTypes.add(type));
     });
-    
+
     const busTypes = Array.from(allBusTypes).sort();
-    
+
     // Group similar bus types
     const typeGroups = {
         'VIP': busTypes.filter(t => t.toLowerCase().includes('vip')),
         'Executive': busTypes.filter(t => t.toLowerCase().includes('executive') || t.toLowerCase().includes('eks')),
         'Economy': busTypes.filter(t => t.toLowerCase().includes('economy') || t.toLowerCase().includes('eco')),
-        'Other': busTypes.filter(t => 
-            !t.toLowerCase().includes('vip') && 
-            !t.toLowerCase().includes('executive') && 
+        'Other': busTypes.filter(t =>
+            !t.toLowerCase().includes('vip') &&
+            !t.toLowerCase().includes('executive') &&
             !t.toLowerCase().includes('eks') &&
             !t.toLowerCase().includes('economy') &&
             !t.toLowerCase().includes('eco')
         )
     };
-    
+
     let html = `
         <div class="card mb-3">
             <div class="card-header bg-primary text-white">
@@ -1256,12 +1141,12 @@ function displayAnalytics(analytics) {
                             <tr class="table-primary">
                                 <td><strong>BUS TOTAL</strong></td>
                                 ${companies.map(company => {
-                                    const count = analytics.summary.bus_companies[company] || 0;
-                                    return `<td class="text-center"><strong>${count}</strong></td>`;
-                                }).join('')}
+        const count = analytics.summary.bus_companies[company] || 0;
+        return `<td class="text-center"><strong>${count}</strong></td>`;
+    }).join('')}
                             </tr>
     `;
-    
+
     // Add rows for each bus type group
     Object.entries(typeGroups).forEach(([groupName, types]) => {
         if (types.length > 0) {
@@ -1269,18 +1154,18 @@ function displayAnalytics(analytics) {
                 <tr class="table-info">
                     <td><strong>${groupName}</strong><br><small class="text-muted">(${types.join(', ')})</small></td>
                     ${companies.map(company => {
-                        let total = 0;
-                        const companyTypes = analytics.summary.bus_types_by_company[company] || {};
-                        types.forEach(type => {
-                            total += companyTypes[type] || 0;
-                        });
-                        return `<td class="text-center">${total}</td>`;
-                    }).join('')}
+                let total = 0;
+                const companyTypes = analytics.summary.bus_types_by_company[company] || {};
+                types.forEach(type => {
+                    total += companyTypes[type] || 0;
+                });
+                return `<td class="text-center">${total}</td>`;
+            }).join('')}
                 </tr>
             `;
         }
     });
-    
+
     html += `
                         </tbody>
                     </table>
@@ -1296,7 +1181,7 @@ function displayAnalytics(analytics) {
             </div>
             <div class="card-body">
     `;
-    
+
     analytics.crawl_sessions.forEach(session => {
         html += `
             <div class="card mb-2">
@@ -1311,17 +1196,17 @@ function displayAnalytics(analytics) {
                         <div class="col-md-6">
                             <h6>Companies:</h6>
                             <ul class="list-unstyled">
-                                ${Object.entries(session.companies).map(([company, count]) => 
-                                    `<li><span class="badge bg-secondary">${count}</span> ${company}</li>`
-                                ).join('')}
+                                ${Object.entries(session.companies).map(([company, count]) =>
+            `<li><span class="badge bg-secondary">${count}</span> ${company}</li>`
+        ).join('')}
                             </ul>
                         </div>
                         <div class="col-md-6">
                             <h6>Bus Types:</h6>
                             <ul class="list-unstyled">
-                                ${Object.entries(session.bus_types).map(([type, count]) => 
-                                    `<li><span class="badge bg-info">${count}</span> ${type}</li>`
-                                ).join('')}
+                                ${Object.entries(session.bus_types).map(([type, count]) =>
+            `<li><span class="badge bg-info">${count}</span> ${type}</li>`
+        ).join('')}
                             </ul>
                         </div>
                     </div>
@@ -1329,7 +1214,7 @@ function displayAnalytics(analytics) {
             </div>
         `;
     });
-    
+
     html += `
             </div>
         </div>
@@ -1364,7 +1249,7 @@ function displayAnalytics(analytics) {
             </div>
         </div>
     `;
-    
+
     container.innerHTML = html;
 }
 
@@ -1376,35 +1261,35 @@ async function startTraining() {
     const btn = document.getElementById('train-btn');
     const progressDiv = document.getElementById('training-progress');
     const logsDiv = document.getElementById('training-logs');
-    
+
     btn.disabled = true;
     progressDiv.style.display = 'block';
     logsDiv.innerHTML = '<div class="text-muted">Starting training...</div>';
-    
+
     try {
         const response = await fetch('/api/train/start', {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({days_back: daysBack})
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ days_back: daysBack })
         });
-        
+
         const data = await response.json();
-        
+
         if (response.ok) {
             // Monitor training progress
             const checkInterval = setInterval(async () => {
                 const statusRes = await fetch('/api/train/status');
                 const status = await statusRes.json();
-                
+
                 // Update progress bar
                 document.getElementById('training-progress-bar').style.width = status.progress + '%';
                 document.getElementById('training-step').textContent = status.current_step;
-                
+
                 // Check if training is complete
                 if (!status.is_running && status.results) {
                     clearInterval(checkInterval);
                     btn.disabled = false;
-                    
+
                     // Display results
                     if (status.results.error) {
                         alert('Training error: ' + status.results.error);
@@ -1429,14 +1314,14 @@ async function startTraining() {
 function displayTrainingResults(results) {
     const resultsDiv = document.getElementById('training-results');
     resultsDiv.style.display = 'block';
-    
+
     document.getElementById('result-mae').textContent = results.metrics.mae.toFixed(2);
     document.getElementById('result-rmse').textContent = results.metrics.rmse.toFixed(2);
     document.getElementById('result-r2').textContent = results.metrics.r2.toFixed(4);
     document.getElementById('result-datapoints').textContent = results.data_points.toLocaleString();
-    
+
     const timestamp = new Date(results.timestamp);
-    document.getElementById('result-timestamp').textContent = 
+    document.getElementById('result-timestamp').textContent =
         'Completed: ' + timestamp.toLocaleString();
 }
 
@@ -1446,17 +1331,17 @@ function togglePredictionType() {
     const predictionType = document.getElementById('prediction-type').value;
     const daysOption = document.getElementById('days-option');
     const daterangeOption = document.getElementById('daterange-option');
-    
+
     if (predictionType === 'daterange') {
         daysOption.style.display = 'none';
         daterangeOption.style.display = 'block';
-        
+
         // Set default dates (tomorrow to 7 days from now)
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
         const nextWeek = new Date();
         nextWeek.setDate(nextWeek.getDate() + 7);
-        
+
         document.getElementById('start-date').value = tomorrow.toISOString().split('T')[0];
         document.getElementById('end-date').value = nextWeek.toISOString().split('T')[0];
     } else {
@@ -1469,28 +1354,11 @@ function togglePredictionType() {
 function toggleCustomDays() {
     const daysSelect = document.getElementById('prediction-days');
     const customInput = document.getElementById('custom-days-input');
-    
+
     if (daysSelect.value === 'custom') {
         customInput.style.display = 'block';
     } else {
         customInput.style.display = 'none';
-    }
-}
-
-// Load available routes for prediction
-async function loadAvailableRoutes() {
-    try {
-        const response = await fetch('/api/routes/available');
-        const routes = await response.json();
-        
-        const routeSelect = document.getElementById('prediction-route');
-        routeSelect.innerHTML = '<option value="">All Routes</option>';
-        
-        routes.forEach(route => {
-            routeSelect.innerHTML += `<option value="${route}">${route}</option>`;
-        });
-    } catch (error) {
-        console.error('Failed to load routes:', error);
     }
 }
 
@@ -1499,34 +1367,34 @@ async function generatePredictions() {
     const routeSelect = document.getElementById('prediction-route');
     const btn = document.getElementById('predict-btn');
     const resultsDiv = document.getElementById('prediction-results');
-    
+
     let requestData = {
         route: routeSelect.value || null
     };
-    
+
     // Determine prediction parameters based on type
     if (predictionType === 'daterange') {
         // Date range prediction
         const startDate = document.getElementById('start-date').value;
         const endDate = document.getElementById('end-date').value;
-        
+
         if (!startDate || !endDate) {
             alert('Please select both start and end dates');
             return;
         }
-        
+
         if (new Date(startDate) > new Date(endDate)) {
             alert('Start date must be before or equal to end date');
             return;
         }
-        
+
         requestData.start_date = startDate;
         requestData.end_date = endDate;
     } else {
         // Days from today prediction
         const daysSelect = document.getElementById('prediction-days');
         const customDaysInput = document.getElementById('custom-days-value');
-        
+
         let days;
         if (daysSelect.value === 'custom') {
             days = parseInt(customDaysInput.value);
@@ -1537,31 +1405,31 @@ async function generatePredictions() {
         } else {
             days = parseInt(daysSelect.value);
         }
-        
+
         requestData.days = days;
     }
-    
+
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generating...';
-    
+
     try {
         const response = await fetch('/api/predict', {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestData)
         });
-        
+
         const data = await response.json();
-        
+
         if (response.ok) {
             // Display session ID and total
             document.getElementById('session-id').textContent = data.session_id;
             document.getElementById('total-predictions').textContent = data.total_predictions;
-            
+
             // Display predictions in table
             const tbody = document.getElementById('predictions-table');
             tbody.innerHTML = '';
-            
+
             if (data.predictions.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="12" class="text-center text-muted">No predictions available</td></tr>';
             } else {
@@ -1585,9 +1453,9 @@ async function generatePredictions() {
                     tbody.innerHTML += row;
                 });
             }
-            
+
             resultsDiv.style.display = 'block';
-            
+
             // Scroll to results
             resultsDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         } else {
@@ -1604,11 +1472,11 @@ async function generatePredictions() {
 // Load database statistics
 async function loadDatabaseStats() {
     const statsDiv = document.getElementById('db-stats-predictions');
-    
+
     try {
         const response = await fetch('/api/database/stats');
         const stats = await response.json();
-        
+
         console.log('Database stats:', stats);
         let html = `
             <div class="mb-2">
@@ -1638,11 +1506,11 @@ async function loadDatabaseStats() {
 async function loadPredictionHistory() {
     const container = document.getElementById('history-content');
     container.innerHTML = '<div class="text-center"><div class="spinner-border"></div><p>Loading...</p></div>';
-    
+
     try {
         const response = await fetch('/api/predictions/history');
         const sessions = await response.json();
-        
+
         if (sessions.length === 0) {
             container.innerHTML = `
                 <div class="text-center text-muted py-5">
@@ -1652,7 +1520,7 @@ async function loadPredictionHistory() {
             `;
             return;
         }
-        
+
         let html = '<div class="row">';
         sessions.forEach(session => {
             const date = new Date(session.created_at);
@@ -1677,7 +1545,7 @@ async function loadPredictionHistory() {
             `;
         });
         html += '</div>';
-        
+
         container.innerHTML = html;
     } catch (error) {
         container.innerHTML = `<div class="alert alert-danger">Error loading history: ${error.message}</div>`;
@@ -1689,12 +1557,12 @@ async function viewSession(sessionId) {
     try {
         const response = await fetch(`/api/predictions/session/${sessionId}`);
         const predictions = await response.json();
-        
+
         if (predictions.length === 0) {
             alert('No predictions found for this session');
             return;
         }
-        
+
         // Create modal to display predictions
         const modal = `
             <div class="modal fade" id="sessionModal" tabindex="-1">
@@ -1744,10 +1612,10 @@ async function viewSession(sessionId) {
                                     </thead>
                                     <tbody>
                                         ${predictions.map(p => {
-                                            const isWeekend = p.is_weekend === 1 || p.is_weekend === true;
-                                            const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-                                            const dayName = dayNames[p.day_of_week] || '';
-                                            return `
+            const isWeekend = p.is_weekend === 1 || p.is_weekend === true;
+            const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+            const dayName = dayNames[p.day_of_week] || '';
+            return `
                                             <tr>
                                                 <td>${p.prediction_date}</td>
                                                 <td><span class="badge bg-${isWeekend ? 'warning' : 'info'}">${dayName}</span></td>
@@ -1774,14 +1642,14 @@ async function viewSession(sessionId) {
                 </div>
             </div>
         `;
-        
+
         // Remove existing modal if any
         const existingModal = document.getElementById('sessionModal');
         if (existingModal) existingModal.remove();
-        
+
         // Add modal to page
         document.body.insertAdjacentHTML('beforeend', modal);
-        
+
         // Show modal
         const modalInstance = new bootstrap.Modal(document.getElementById('sessionModal'));
         modalInstance.show();
@@ -1821,7 +1689,7 @@ async function viewSession(sessionId) {
                             const api = this.api();
 
                             // Column filters for Route (2), Platform (3), Bus Company (4)
-                            api.columns([2,3,4]).every(function () {
+                            api.columns([2, 3, 4]).every(function () {
                                 const col = this;
                                 const colIndex = col.index();
 
@@ -1956,15 +1824,15 @@ async function viewSession(sessionId) {
                 console.warn('Fallback table filtering setup failed', err);
             }
         })();
-        
+
     } catch (error) {
         alert('Error loading session: ' + error.message);
-        console.log(error.message) 
+        console.log(error.message)
     }
 }
 
 // Load stats when predictions tab is shown
-document.addEventListener('shown.bs.tab', function(e) {
+document.addEventListener('shown.bs.tab', function (e) {
     if (e.target.id === 'predictions-tab') {
         loadDatabaseStats();
     }

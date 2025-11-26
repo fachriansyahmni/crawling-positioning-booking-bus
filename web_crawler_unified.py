@@ -12,8 +12,6 @@ import re
 from typing import Dict, List, Optional, Tuple
 
 # Import crawler functions
-from traveloka import initialize_driver as init_traveloka_driver, get_bus_detail as get_traveloka_data
-from traveloka import routes as traveloka_routes, dates as traveloka_dates
 from redbus import initialize_driver as init_redbus_driver, get_bus_detail as get_redbus_data
 from redbus import routes as redbus_routes, dates as redbus_dates
 
@@ -63,12 +61,6 @@ class RouteManager:
             "version": "1.0",
             "last_updated": datetime.now().isoformat(),
             "platforms": {
-                "traveloka": {
-                    "base_url": "https://www.traveloka.com",
-                    "url_format": "traveloka_format",
-                    "date_format": "%Y-%m-%d",
-                    "routes": {}
-                },
                 "redbus": {
                     "base_url": "https://www.redbus.id",
                     "url_format": "redbus_format", 
@@ -123,7 +115,6 @@ class RouteManager:
             
             # Add default platform mappings
             self._add_default_redbus_mappings()
-            self._add_default_traveloka_mappings()
             
             self._save_routes_config()
     
@@ -137,17 +128,6 @@ class RouteManager:
         }
         
         self.routes_data["platforms"]["redbus"]["routes"] = redbus_urls
-    
-    def _add_default_traveloka_mappings(self):
-        """Add default Traveloka URL mappings"""
-        traveloka_urls = {
-            "jkt_smg": "https://www.traveloka.com/id-id/bus-travel/search?o=JAKARTA&d=SEMARANG&dt=[[DATE]]",
-            "jkt_sby": "https://www.traveloka.com/id-id/bus-travel/search?o=JAKARTA&d=SURABAYA&dt=[[DATE]]", 
-            "jkt_mlg": "https://www.traveloka.com/id-id/bus-travel/search?o=JAKARTA&d=MALANG&dt=[[DATE]]",
-            "jkt_lpg": "https://www.traveloka.com/id-id/bus-travel/search?o=JAKARTA&d=LAMPUNG&dt=[[DATE]]"
-        }
-        
-        self.routes_data["platforms"]["traveloka"]["routes"] = traveloka_urls
     
     def _save_routes_config(self):
         """Save routes configuration to file"""
@@ -211,7 +191,7 @@ class RouteManager:
         if self.use_database and self.db:
             try:
                 where_clause = "WHERE active = 1" if active_only else ""
-                sql = f"SELECT id, name, origin, destination, category, active, redbus_url, traveloka_url, created_at, updated_at FROM routes {where_clause} ORDER BY name"
+                sql = f"SELECT id, name, origin, destination, category, active, redbus_url, created_at, updated_at FROM routes {where_clause} ORDER BY name"
                 self.db.cursor.execute(sql)
                 rows = self.db.cursor.fetchall()
                 
@@ -228,7 +208,6 @@ class RouteManager:
                             'active': bool(row['active']),
                             'platforms': {
                                 'redbus': row.get('redbus_url') is not None and row.get('redbus_url') != '',
-                                'traveloka': row.get('traveloka_url') is not None and row.get('traveloka_url') != ''
                             },
                             'created_at': str(row['created_at']) if row.get('created_at') else None,
                             'updated_at': str(row['updated_at']) if row.get('updated_at') else None
@@ -244,7 +223,6 @@ class RouteManager:
                             'active': bool(row[5]),
                             'platforms': {
                                 'redbus': row[6] is not None and row[6] != '',
-                                'traveloka': row[7] is not None and row[7] != ''
                             },
                             'created_at': str(row[8]) if row[8] else None,
                             'updated_at': str(row[9]) if row[9] else None
@@ -263,7 +241,6 @@ class RouteManager:
                     if 'platforms' not in route:
                         route['platforms'] = {
                             'redbus': self.get_platform_url(route['id'], 'redbus') is not None,
-                            'traveloka': self.get_platform_url(route['id'], 'traveloka') is not None
                         }
                 return routes
         else:
@@ -275,7 +252,6 @@ class RouteManager:
                 if 'platforms' not in route:
                     route['platforms'] = {
                         'redbus': self.get_platform_url(route['id'], 'redbus') is not None,
-                        'traveloka': self.get_platform_url(route['id'], 'traveloka') is not None
                     }
             return routes
     
@@ -367,8 +343,6 @@ class RouteManager:
         
         if platform == "redbus":
             return self._format_redbus_url(url_template, date_str)
-        elif platform == "traveloka":
-            return self._format_traveloka_url(url_template, date_str)
         else:
             return url_template.replace("[[DATE]]", date_str)
     
@@ -387,11 +361,7 @@ class RouteManager:
             return formatted_url
         except ValueError:
             return url_template
-    
-    def _format_traveloka_url(self, url_template: str, date_str: str) -> str:
-        """Format Traveloka URL with date"""
-        return url_template.replace("[[DATE]]", date_str)
-    
+        
     def get_routes_for_platform(self, platform: str, active_only: bool = True) -> Dict[str, str]:
         """Get all routes available for specific platform"""
         routes = {}
@@ -434,15 +404,6 @@ class URLFormatter:
             return None
         
         return self.routes_manager.format_url_for_date(route["id"], "redbus", date_str)
-    
-    def format_traveloka_url(self, route_name: str, date_str: str) -> Optional[str]:
-        """Format Traveloka URL for specific route and date"""
-        route = self.routes_manager.get_route_by_name(route_name)
-        if not route:
-            return None
-        
-        return self.routes_manager.format_url_for_date(route["id"], "traveloka", date_str)
-
 
 class CrawlTaskGenerator:
     """Generate crawling tasks for different platforms"""
@@ -476,32 +437,6 @@ class CrawlTaskGenerator:
         
         return tasks
     
-    def generate_traveloka_tasks(self, route_names: List[str], dates: List[str]) -> List[Dict]:
-        """Generate tasks for Traveloka crawling"""
-        tasks = []
-        
-        for route_name in route_names:
-            route = self.routes_manager.get_route_by_name(route_name)
-            if not route:
-                continue
-            
-            url_template = self.routes_manager.get_platform_url(route["id"], "traveloka")
-            if not url_template:
-                continue
-            
-            for date_str in dates:
-                formatted_url = self.routes_manager.format_url_for_date(route["id"], "traveloka", date_str)
-                
-                task = {
-                    "route_idx": 0,  # For compatibility with existing Traveloka code
-                    "route": route_name,
-                    "url": formatted_url,
-                    "date": date_str
-                }
-                tasks.append(task)
-        
-        return tasks
-
 # Load configuration
 def load_config():
     config_file = 'config.json'
@@ -535,21 +470,6 @@ socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
 # Global variables for crawling state
 crawling_state = {
-    'traveloka': {
-        'is_running': False,
-        'progress': 0,
-        'total_tasks': 0,
-        'current_task': '',
-        'completed_tasks': 0,
-        'logs': [],
-        'stats': {
-            'total_scraped': 0,
-            'successful': 0,
-            'failed': 0,
-            'start_time': None,
-            'end_time': None
-        }
-    },
     'redbus': {
         'is_running': False,
         'progress': 0,
@@ -579,7 +499,7 @@ training_state = {
 }
 
 # Thread references
-crawl_threads = {'traveloka': None, 'redbus': None}
+crawl_threads = {'redbus': None}
 training_thread = None
 
 def log_message(platform, message, level='info'):
@@ -618,107 +538,6 @@ def update_progress(platform):
         'current_task': crawling_state[platform].get('current_task', ''),
         'current_tasks': crawling_state[platform].get('current_tasks', [])
     })
-
-# Traveloka crawler worker
-def traveloka_worker(tasks):
-    """Worker function for Traveloka crawling using RouteManager"""
-    driver = None
-    db = None
-    
-    try:
-        crawling_state['traveloka']['is_running'] = True
-        crawling_state['traveloka']['stats']['start_time'] = datetime.now().isoformat()
-        crawling_state['traveloka']['completed_tasks'] = 0
-        
-        log_message('traveloka', 'Starting Traveloka crawling...', 'info')
-        log_message('traveloka', f'Total tasks: {len(tasks)}', 'info')
-        
-        # Initialize database connection
-        try:
-            db = BusDatabase(db_type=db_config.get('type', 'sqlite'), db_config=db_config)
-            log_message('traveloka', f'✓ Connected to {db_config.get("type", "sqlite").upper()} database', 'success')
-        except Exception as db_error:
-            log_message('traveloka', f'⚠ Database connection failed: {str(db_error)}', 'warning')
-            log_message('traveloka', 'Continuing without database insertion', 'warning')
-            db = None
-        
-        driver = init_traveloka_driver()
-        
-        for idx, task in enumerate(tasks):
-            if not crawling_state['traveloka']['is_running']:
-                log_message('traveloka', 'Stopped by user', 'warning')
-                break
-            
-            # Handle new task format from RouteManager
-            route_idx = task.get('route_idx', 0)
-            route_name = task.get('route', task.get('route_name', ''))
-            url = task['url']
-            date = task['date']
-            
-            task_name = f"{route_name} - Date: {date}"
-            crawling_state['traveloka']['current_task'] = task_name
-            update_progress('traveloka')
-            
-            log_message('traveloka', f'Scraping {task_name}...', 'info')
-            
-            try:
-                bus_details = get_traveloka_data(driver, url, route_name, date)
-                
-                if bus_details:
-                    # Save to CSV file
-                    df = pd.DataFrame(bus_details)
-                    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-                    filename = f'new_data/traveloka_{route_name}-{date}_{timestamp}.csv'
-                    df.to_csv(filename, index=False, encoding='utf-8')
-                    
-                    # Insert to database
-                    if db:
-                        try:
-                            db_stats = db.insert_bulk_data(bus_details, platform='traveloka')
-                            log_message('traveloka', 
-                                      f'💾 Database: {db_stats["inserted"]} records inserted', 
-                                      'info')
-                        except Exception as db_error:
-                            log_message('traveloka', f'⚠ Database insert error: {str(db_error)}', 'warning')
-                    
-                    crawling_state['traveloka']['stats']['successful'] += 1
-                    crawling_state['traveloka']['stats']['total_scraped'] += len(bus_details)
-                    log_message('traveloka', f'✓ Scraped {len(bus_details)} buses for {task_name}', 'success')
-                else:
-                    crawling_state['traveloka']['stats']['failed'] += 1
-                    log_message('traveloka', f'⚠ No data for {task_name}', 'warning')
-            
-            except Exception as e:
-                crawling_state['traveloka']['stats']['failed'] += 1
-                log_message('traveloka', f'✗ Error: {str(e)}', 'error')
-            
-            crawling_state['traveloka']['completed_tasks'] += 1
-            update_progress('traveloka')
-            time.sleep(1)
-        
-        log_message('traveloka', 'Crawling completed!', 'success')
-        
-    except Exception as e:
-        log_message('traveloka', f'Fatal error: {str(e)}', 'error')
-    
-    finally:
-        if driver:
-            try:
-                driver.quit()
-                log_message('traveloka', 'Browser closed', 'info')
-            except:
-                pass
-        
-        if db:
-            try:
-                db.close()
-                log_message('traveloka', 'Database connection closed', 'info')
-            except:
-                pass
-        
-        crawling_state['traveloka']['is_running'] = False
-        crawling_state['traveloka']['stats']['end_time'] = datetime.now().isoformat()
-        update_progress('traveloka')
 
 # Redbus normal sequential crawling
 def redbus_worker(tasks):
@@ -944,20 +763,7 @@ def get_status():
 @app.route('/api/routes/<platform>')
 def get_routes(platform):
     """Get routes for specific platform using RouteManager"""
-    if platform == 'traveloka':
-        # Get routes from RouteManager
-        routes_dict = route_manager.get_routes_for_platform("traveloka", active_only=True)
-        route_info = []
-        
-        if routes_dict:
-            route_info.append({
-                'index': 0,
-                'routes': list(routes_dict.keys()),
-                'dates': ["15","16","17","18","19","20","21","22","23","24","25","26","27","28","29","30","31"]
-            })
-        
-        return jsonify(route_info)
-    elif platform == 'redbus':
+    if platform == 'redbus':
         # Get routes from RouteManager
         routes_dict = route_manager.get_routes_for_platform("redbus", active_only=True)
         dates = ["15","16","17","18","19","20","21","22","23","24","25","26","27","28","29","30","31"]
@@ -966,6 +772,7 @@ def get_routes(platform):
             'routes': list(routes_dict.keys()),
             'dates': dates
         })
+
     elif platform == 'all':
         # Return all routes managed by RouteManager
         all_routes = route_manager.get_all_routes(active_only=True)
@@ -982,7 +789,7 @@ def get_routes(platform):
 @app.route('/api/start/<platform>', methods=['POST'])
 def start_crawling(platform):
     """Start crawling for specific platform using RouteManager"""
-    if platform not in ['traveloka', 'redbus']:
+    if platform not in ['redbus']:
         return jsonify({'error': 'Invalid platform'}), 400
     
     if crawling_state[platform]['is_running']:
@@ -1005,39 +812,7 @@ def start_crawling(platform):
     
     os.makedirs('new_data', exist_ok=True)
     
-    if platform == 'traveloka':
-        selected_routes = data.get('routes', {})
-        selected_dates = data.get('dates', {})
-        
-        # Convert to route names list
-        route_names = []
-        for route_idx_str in selected_routes:
-            route_names.extend(selected_routes[route_idx_str])
-        
-        # Convert dates
-        dates = []
-        for route_idx_str in selected_dates:
-            for date in selected_dates[route_idx_str]:
-                # Convert day-only format to full date if needed
-                if date.isdigit() and len(date) <= 2:
-                    date_full = f"2025-12-{date.zfill(2)}"
-                else:
-                    date_full = date
-                if date_full not in dates:
-                    dates.append(date_full)
-        
-        # Generate tasks using RouteManager
-        tasks = task_generator.generate_traveloka_tasks(route_names, dates)
-        
-        crawling_state['traveloka']['total_tasks'] = len(tasks)
-        
-        thread = threading.Thread(target=traveloka_worker, args=(tasks,))
-        thread.start()
-        crawl_threads['traveloka'] = thread
-        
-        return jsonify({'message': 'Traveloka crawling started', 'total_tasks': len(tasks)})
-    
-    elif platform == 'redbus':
+    if platform == 'redbus':
         selected_routes = data.get('routes', [])
         selected_dates = data.get('dates', [])
         
@@ -1064,7 +839,7 @@ def start_crawling(platform):
 @app.route('/api/stop/<platform>', methods=['POST'])
 def stop_crawling(platform):
     """Stop crawling for specific platform"""
-    if platform not in ['traveloka', 'redbus']:
+    if platform not in ['redbus']:
         return jsonify({'error': 'Invalid platform'}), 400
     
     if not crawling_state[platform]['is_running']:
@@ -1078,7 +853,7 @@ def stop_crawling(platform):
 @app.route('/api/data/<platform>')
 def get_scraped_data(platform):
     """Get list of scraped data files for platform"""
-    if platform not in ['traveloka', 'redbus', 'all']:
+    if platform not in ['redbus', 'all']:
         return jsonify({'error': 'Invalid platform'}), 400
     
     data_files = []
@@ -1191,94 +966,6 @@ def get_file_data(filename):
             'preview': df.head(20).to_dict('records'),
             'stats': stats
         })
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/compare')
-def compare_data():
-    """Compare data from both platforms"""
-    try:
-        # Get all files
-        traveloka_files = glob.glob('new_data/traveloka_*.csv')
-        redbus_files = glob.glob('new_data/redbus_*.csv')
-        
-        comparison = {
-            'traveloka': {
-                'total_files': len(traveloka_files),
-                'total_records': 0,
-                'routes': {},
-                'avg_price': 0,
-                'date_coverage': set()
-            },
-            'redbus': {
-                'total_files': len(redbus_files),
-                'total_records': 0,
-                'routes': {},
-                'avg_price': 0,
-                'date_coverage': set()
-            },
-            'comparison': []
-        }
-        
-        # Process Traveloka files
-        all_prices_t = []
-        for file in traveloka_files:
-            df = pd.read_csv(file)
-            comparison['traveloka']['total_records'] += len(df)
-            
-            if 'Route_Name' in df.columns and len(df) > 0:
-                route = df['Route_Name'].iloc[0]
-                comparison['traveloka']['routes'][route] = \
-                    comparison['traveloka']['routes'].get(route, 0) + len(df)
-            
-            if 'Route_Date' in df.columns:
-                comparison['traveloka']['date_coverage'].update(df['Route_Date'].unique())
-            
-            if 'Price' in df.columns:
-                prices = pd.to_numeric(df['Price'], errors='coerce').dropna()
-                all_prices_t.extend(prices.tolist())
-        
-        if all_prices_t:
-            comparison['traveloka']['avg_price'] = sum(all_prices_t) / len(all_prices_t)
-        
-        # Process Redbus files
-        all_prices_r = []
-        for file in redbus_files:
-            df = pd.read_csv(file)
-            comparison['redbus']['total_records'] += len(df)
-            
-            if 'Route_Name' in df.columns and len(df) > 0:
-                route = df['Route_Name'].iloc[0]
-                comparison['redbus']['routes'][route] = \
-                    comparison['redbus']['routes'].get(route, 0) + len(df)
-            
-            if 'Route_Date' in df.columns:
-                comparison['redbus']['date_coverage'].update(df['Route_Date'].unique())
-            
-            if 'Price' in df.columns:
-                prices = pd.to_numeric(df['Price'], errors='coerce').dropna()
-                all_prices_r.extend(prices.tolist())
-        
-        if all_prices_r:
-            comparison['redbus']['avg_price'] = sum(all_prices_r) / len(all_prices_r)
-        
-        # Convert sets to lists for JSON
-        comparison['traveloka']['date_coverage'] = sorted(list(comparison['traveloka']['date_coverage']))
-        comparison['redbus']['date_coverage'] = sorted(list(comparison['redbus']['date_coverage']))
-        
-        # Route-by-route comparison
-        all_routes = set(comparison['traveloka']['routes'].keys()) | \
-                     set(comparison['redbus']['routes'].keys())
-        
-        for route in all_routes:
-            comparison['comparison'].append({
-                'route': route,
-                'traveloka_records': comparison['traveloka']['routes'].get(route, 0),
-                'redbus_records': comparison['redbus']['routes'].get(route, 0)
-            })
-        
-        return jsonify(comparison)
-    
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -1509,8 +1196,6 @@ def api_generate_tasks():
         
         if platform == 'redbus':
             tasks = task_generator.generate_redbus_tasks(routes, dates)
-        elif platform == 'traveloka':
-            tasks = task_generator.generate_traveloka_tasks(routes, dates)
         else:
             return jsonify({'error': 'Invalid platform'}), 400
         
@@ -1792,8 +1477,6 @@ def handle_connect():
     """Handle client connection"""
     emit('connected', {'message': 'Connected to Unified Crawler'})
     # Send current logs
-    for log in crawling_state['traveloka']['logs']:
-        emit('log_update', log)
     for log in crawling_state['redbus']['logs']:
         emit('log_update', log)
     for log in training_state['logs']:
@@ -1815,7 +1498,6 @@ if __name__ == '__main__':
     
     # Ensure data directories exist
     os.makedirs('new_data', exist_ok=True)
-    os.makedirs('data/traveloka', exist_ok=True)
     os.makedirs('data/redbus', exist_ok=True)
     
     socketio.run(app, debug=debug, host=host, port=port)

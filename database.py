@@ -149,6 +149,7 @@ class BusDatabase:
                 star_rating DECIMAL(3,2),
                 price INTEGER,
                 seat_availability VARCHAR(50),
+                light_g_bar VARCHAR(50),
                 crawl_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 data_hash VARCHAR(64)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
@@ -223,150 +224,13 @@ class BusDatabase:
                 "CREATE INDEX idx_sessions_route ON crawl_sessions(route_name, route_date)"
             ]
         
-        # Prediction tables
-        if self.db_type == 'sqlite':
-            prediction_sessions_sql = """
-            CREATE TABLE IF NOT EXISTS prediction_sessions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                prediction_period VARCHAR(50) NOT NULL,
-                prediction_start_date DATE NOT NULL,
-                prediction_end_date DATE NOT NULL,
-                model_version VARCHAR(100),
-                training_data_days INTEGER,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            )
-            """
-            
-            predictions_sql = """
-            CREATE TABLE IF NOT EXISTS predictions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                session_id INTEGER NOT NULL,
-                prediction_date DATE NOT NULL,
-                day_of_week INTEGER NOT NULL,
-                is_weekend INTEGER NOT NULL,
-                platform VARCHAR(50) NOT NULL,
-                route_name VARCHAR(100) NOT NULL,
-                bus_name VARCHAR(200) NOT NULL,
-                predicted_total INTEGER NOT NULL,
-                predicted_vip INTEGER NOT NULL,
-                predicted_executive INTEGER NOT NULL,
-                predicted_other INTEGER NOT NULL,
-                predicted_departing_time VARCHAR(20),
-                predicted_reaching_time VARCHAR(20),
-                predicted_price INTEGER,
-                actual_total INTEGER,
-                actual_vip INTEGER,
-                actual_executive INTEGER,
-                actual_other INTEGER,
-                accuracy_score DECIMAL(5,2),
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (session_id) REFERENCES prediction_sessions(id)
-            )
-            """
-        elif self.db_type == 'mysql':
-            prediction_sessions_sql = """
-            CREATE TABLE IF NOT EXISTS prediction_sessions (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                prediction_period VARCHAR(50) NOT NULL,
-                prediction_start_date DATE NOT NULL,
-                prediction_end_date DATE NOT NULL,
-                model_version VARCHAR(100),
-                training_data_days INTEGER,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-            """
-            
-            predictions_sql = """
-            CREATE TABLE IF NOT EXISTS predictions (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                session_id INT NOT NULL,
-                prediction_date DATE NOT NULL,
-                day_of_week INTEGER NOT NULL,
-                is_weekend INTEGER NOT NULL,
-                platform VARCHAR(50) NOT NULL,
-                route_name VARCHAR(100) NOT NULL,
-                bus_name VARCHAR(200) NOT NULL,
-                predicted_total INTEGER NOT NULL,
-                predicted_vip INTEGER NOT NULL,
-                predicted_executive INTEGER NOT NULL,
-                predicted_other INTEGER NOT NULL,
-                predicted_departing_time VARCHAR(20),
-                predicted_reaching_time VARCHAR(20),
-                predicted_price INTEGER,
-                actual_total INTEGER,
-                actual_vip INTEGER,
-                actual_executive INTEGER,
-                actual_other INTEGER,
-                accuracy_score DECIMAL(5,2),
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (session_id) REFERENCES prediction_sessions(id)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-            """
-        else:  # PostgreSQL
-            prediction_sessions_sql = """
-            CREATE TABLE IF NOT EXISTS prediction_sessions (
-                id SERIAL PRIMARY KEY,
-                prediction_period VARCHAR(50) NOT NULL,
-                prediction_start_date DATE NOT NULL,
-                prediction_end_date DATE NOT NULL,
-                model_version VARCHAR(100),
-                training_data_days INTEGER,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-            """
-            
-            predictions_sql = """
-            CREATE TABLE IF NOT EXISTS predictions (
-                id SERIAL PRIMARY KEY,
-                session_id INTEGER NOT NULL,
-                prediction_date DATE NOT NULL,
-                day_of_week INTEGER NOT NULL,
-                is_weekend INTEGER NOT NULL,
-                platform VARCHAR(50) NOT NULL,
-                route_name VARCHAR(100) NOT NULL,
-                bus_name VARCHAR(200) NOT NULL,
-                predicted_total INTEGER NOT NULL,
-                predicted_vip INTEGER NOT NULL,
-                predicted_executive INTEGER NOT NULL,
-                predicted_other INTEGER NOT NULL,
-                predicted_departing_time VARCHAR(20),
-                predicted_reaching_time VARCHAR(20),
-                predicted_price INTEGER,
-                actual_total INTEGER,
-                actual_vip INTEGER,
-                actual_executive INTEGER,
-                actual_other INTEGER,
-                accuracy_score DECIMAL(5,2),
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (session_id) REFERENCES prediction_sessions(id)
-            )
-            """
-        
-        # Prediction indexes
-        if self.db_type == 'sqlite':
-            prediction_indexes = [
-                "CREATE INDEX IF NOT EXISTS idx_pred_session ON predictions(session_id)",
-                "CREATE INDEX IF NOT EXISTS idx_pred_date ON predictions(prediction_date)",
-                "CREATE INDEX IF NOT EXISTS idx_pred_company ON predictions(bus_name)",
-                "CREATE INDEX IF NOT EXISTS idx_pred_route ON predictions(route_name)"
-            ]
-        else:
-            prediction_indexes = [
-                "CREATE INDEX idx_pred_session ON predictions(session_id)",
-                "CREATE INDEX idx_pred_date ON predictions(prediction_date)",
-                "CREATE INDEX idx_pred_company ON predictions(bus_name)",
-                "CREATE INDEX idx_pred_route ON predictions(route_name)"
-            ]
-        
         try:
             self.cursor.execute(bus_data_sql)
-            self.cursor.execute(crawl_sessions_sql)
-            self.cursor.execute(prediction_sessions_sql)
-            self.cursor.execute(predictions_sql)
+            self.cursor.execute(crawl_sessions_sql) 
             self.conn.commit()
             
             # Create indexes, ignore if they already exist
-            for index_sql in indexes_sql + prediction_indexes:
+            for index_sql in indexes_sql:
                 try:
                     self.cursor.execute(index_sql)
                     self.conn.commit()
@@ -421,7 +285,7 @@ class BusDatabase:
         
         Args:
             data: Dictionary containing bus data
-            platform: 'traveloka' or 'redbus'
+            platform: 'redbus'
         
         Returns:
             True if inserted successfully
@@ -492,7 +356,7 @@ class BusDatabase:
         
         Args:
             data_list: List of dictionaries containing bus data
-            platform: 'traveloka' or 'redbus'
+            platform: 'redbus'
         
         Returns:
             Dictionary with statistics: {'inserted': count, 'errors': count}
@@ -611,9 +475,7 @@ class BusDatabase:
             # Auto-detect platform from filename
             detected_platform = platform
             if not detected_platform:
-                if 'traveloka' in filename.lower():
-                    detected_platform = 'traveloka'
-                elif 'redbus' in filename.lower():
+                if 'redbus' in filename.lower():
                     detected_platform = 'redbus'
                 else:
                     print(f"⚠ Cannot detect platform for {filename}, skipping")
@@ -1183,9 +1045,6 @@ if __name__ == '__main__':
     choice = input("Import CSV files from data directory? (y/n): ").strip().lower()
     
     if choice == 'y':
-        # Import from both directories
-        print("\nImporting Traveloka data...")
-        traveloka_stats = db.import_from_directory('data/traveloka', 'traveloka')
         
         print("\nImporting Redbus data...")
         redbus_stats = db.import_from_directory('data/redbus', 'redbus')

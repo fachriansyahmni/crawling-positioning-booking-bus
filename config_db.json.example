@@ -1,0 +1,34 @@
+{
+  "_comment": "ACTIVE DATABASE CONFIGURATION - Change this section to switch database",
+  "database": {
+    "type": "mysql",
+    "host": "localhost",
+    "port": 3306,
+    "database": "crawling_data",
+    "user": "root",
+    "password": ""
+  },
+  "_comment_sqlite": "SQLite Configuration (Local Database)",
+  "_database_sqlite": {
+    "type": "sqlite",
+    "database": "data/bus_data.db"
+  },
+  "_comment_mysql_local": "MySQL Local Configuration Example",
+  "_database_mysql_local": {
+    "type": "mysql",
+    "host": "localhost",
+    "port": 3306,
+    "database": "bus_crawler",
+    "user": "root",
+    "password": "password"
+  },
+  "_comment_postgresql": "Uncomment and configure below for PostgreSQL",
+  "_database_postgresql": {
+    "type": "postgresql",
+    "host": "localhost",
+    "port": 5432,
+    "database": "bus_crawler",
+    "user": "",
+    "password": ""
+  }
+}
