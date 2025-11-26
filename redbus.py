@@ -204,21 +204,40 @@ def get_bus_detail(driver, url, route, date_str):
                     # Extract light-g-bar / green-bar information
                     # Prefer the child `.green-bar` if present and try to parse a `w-<num>` class
                     try:
-                        light_g_elem = item.find_element(By.CSS_SELECTOR, ".light-g-bar .green-bar")
+                        # Try to find a child element inside .light-g-bar.
+                        # Prefer .green-bar but accept other child elements (e.g. .bar, div, span).
+                        child_selector = (
+                            ".light-g-bar .green-bar, .light-g-bar .bar, .light-g-bar > div, .light-g-bar span"
+                        )
+                        light_g_elem = item.find_element(By.CSS_SELECTOR, child_selector)
                         light_g_class = light_g_elem.get_attribute("class") or ""
+
+                        # 1) Try parse a class like w-10
                         m = re.search(r"w-(\d+)", light_g_class)
                         if m:
-                            # store numeric part (e.g. w-10 -> 10)
                             light_g_value = int(m.group(1))
                         else:
-                            # fallback to inline style or text content
-                            style = light_g_elem.get_attribute("style")
-                            light_g_value = style if style else (light_g_elem.text or light_g_class)
+                            # 2) Try inline style (e.g. width:10%) and extract first number
+                            style = light_g_elem.get_attribute("style") or ""
+                            m2 = re.search(r"(\d+)", style)
+                            if m2:
+                                light_g_value = int(m2.group(1))
+                            else:
+                                # 3) Try numeric text inside the element
+                                text = (light_g_elem.text or "").strip()
+                                if text and re.search(r"\d", text):
+                                    m3 = re.search(r"(\d+)", text)
+                                    light_g_value = int(m3.group(1)) if m3 else text
+                                else:
+                                    # 4) Fallback to class or raw text, or 'N/A'
+                                    light_g_value = text or light_g_class or 'N/A'
                     except NoSuchElementException:
                         # fallback: any content inside .light-g-bar
                         try:
                             lg = item.find_element(By.CSS_SELECTOR, ".light-g-bar")
-                            light_g_value = lg.text or lg.get_attribute("innerHTML") or 'N/A'
+                            lg_text = (lg.text or lg.get_attribute("innerHTML") or "").strip()
+                            m4 = re.search(r"(\d+)", lg_text)
+                            light_g_value = int(m4.group(1)) if m4 else (lg_text or 'N/A')
                         except NoSuchElementException:
                             light_g_value = 'N/A'
                 except Exception:

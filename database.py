@@ -303,6 +303,7 @@ class BusDatabase:
             'reaching_time': data.get('Reaching_Time', data.get('reaching_time', '')),
             'star_rating': data.get('Star_Rating', data.get('star_rating')),
             'price': data.get('Price', data.get('price')),
+            'light_g_bar': data.get('G_Light_Bar', data.get('g_light_bar', '')),
             'seat_availability': data.get('Seat_Availability', data.get('seat_availability', ''))
         }
         
@@ -315,13 +316,15 @@ class BusDatabase:
             normalized_data['star_rating'] = None
         if normalized_data['price'] == '' or normalized_data['price'] is None:
             normalized_data['price'] = None
+
+        if normalized_data['light_g_bar'] == '' or normalized_data['light_g_bar'] is None:
+            normalized_data['light_g_bar'] = None
         
         sql = """
         INSERT INTO bus_data (
             platform, route_name, route_date, route_link, bus_name, bus_type,
-            departing_time, duration, reaching_time, star_rating, price,
-            seat_availability, data_hash
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            departing_time, duration, reaching_time, star_rating, price, light_g_bar, seat_availability, data_hash
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         
         if self.db_type in ['mysql', 'postgresql']:
@@ -340,6 +343,7 @@ class BusDatabase:
                 normalized_data['reaching_time'],
                 normalized_data['star_rating'],
                 normalized_data['price'],
+                normalized_data['g_light_bar'],
                 normalized_data['seat_availability'],
                 normalized_data['data_hash']
             ))

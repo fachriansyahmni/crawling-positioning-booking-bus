@@ -1,18 +1,7 @@
 {
   "version": "1.0",
   "last_updated": "2025-11-13T13:15:17.266812",
-  "platforms": {
-    "traveloka": {
-      "base_url": "https://www.traveloka.com",
-      "url_format": "traveloka_format",
-      "date_format": "%Y-%m-%d",
-      "routes": {
-        "jkt_smg": "https://www.traveloka.com/id-id/bus-travel/search?o=JAKARTA&d=SEMARANG&dt=[[DATE]]",
-        "jkt_sby": "https://www.traveloka.com/id-id/bus-travel/search?o=JAKARTA&d=SURABAYA&dt=[[DATE]]",
-        "jkt_mlg": "https://www.traveloka.com/id-id/bus-travel/search?o=JAKARTA&d=MALANG&dt=[[DATE]]",
-        "jkt_lpg": "https://www.traveloka.com/id-id/bus-travel/search?o=JAKARTA&d=LAMPUNG&dt=[[DATE]]"
-      }
-    },
+  "platforms": { 
     "redbus": {
       "base_url": "https://www.redbus.id",
       "url_format": "redbus_format",
