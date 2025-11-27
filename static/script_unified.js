@@ -678,10 +678,7 @@ async function loadDataFiles(filter = 'all') {
                             <i class="bi bi-list-ol"></i> ${file.rows} rows
                         </small>
                     </div>
-                    <div class="col-md-6 text-end">
-                        <button class="btn btn-sm btn-primary" onclick="previewFile('${file.filename}')">
-                            <i class="bi bi-eye"></i> Preview
-                        </button>
+                    <div class="col-md-6 text-end"> 
                         <button class="btn btn-sm btn-success" onclick="downloadFile('${file.filename}')">
                             <i class="bi bi-download"></i> Download
                         </button>
