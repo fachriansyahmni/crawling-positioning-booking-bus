@@ -87,30 +87,58 @@ def initialize_driver(headless=None):
     
     # Use parameter if provided, otherwise use config
     if headless is None:
-        headless = selenium_config.get('headless', True)  # Default True for Redbus
+        headless = selenium_config.get('headless', False)  # Default False for Windows
     
     options = Options()
     
-    # Headless mode for VPS
+    # Conditional headless mode
     if headless:
         options.add_argument('--headless=new')  # New headless mode
-        options.add_argument('--disable-gpu') 
-        options.add_argument('--no-sandbox') 
-        options.add_argument('--disable-dev-shm-usage')
-        options.add_argument("--remote-debugging-port=9222")
-        options.add_argument('--window-size=1920,1080')
+        options.add_argument('--disable-gpu')
+    
+    # Essential Chrome options for Windows
+    options.add_argument('--no-sandbox')
+    options.add_argument('--disable-dev-shm-usage')
+    options.add_argument('--window-size=1920,1080')
+    options.add_argument('--start-maximized')
+    
+    # Fix for "session not created" error on Windows
+    options.add_argument('--disable-extensions')
+    options.add_argument('--disable-software-rasterizer')
+    options.add_argument('--log-level=3')  # Suppress warnings
     
     # Anti-detection settings (works for both headless and visible)
-    user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
     options.add_argument(f'user-agent={user_agent}')
-    options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    options.add_experimental_option("excludeSwitches", ["enable-automation", "enable-logging"])
     options.add_experimental_option('useAutomationExtension', False)
     options.add_argument("--disable-blink-features=AutomationControlled")
     
-    # service = Service(chrome_driver_path)
-    service = Service(ChromeDriverManager().install())
-    driver = webdriver.Chrome(service=service, options=options)
-    return driver
+    # Suppress unnecessary logs
+    options.add_experimental_option('excludeSwitches', ['enable-logging'])
+    
+    try:
+        # service = Service(chrome_driver_path)
+        service = Service(ChromeDriverManager().install())
+        driver = webdriver.Chrome(service=service, options=options)
+        
+        # Remove webdriver flag
+        driver.execute_cdp_cmd('Network.setUserAgentOverride', {
+            "userAgent": user_agent.replace('Headless', '')
+        })
+        driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+        
+        print("✓ Chrome driver initialized successfully")
+        return driver
+        
+    except Exception as e:
+        print(f"✗ Error initializing Chrome driver: {e}")
+        print("\nTroubleshooting steps:")
+        print("1. Make sure Google Chrome is installed")
+        print("2. Try closing all Chrome instances")
+        print("3. Run: pip install --upgrade selenium webdriver-manager")
+        print("4. Restart your computer if issue persists")
+        raise
 
 def load_page(driver, url):
     driver.get(url)

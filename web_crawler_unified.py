@@ -18,6 +18,9 @@ from redbus import routes as redbus_routes, dates as redbus_dates
 # Import database module
 from database import BusDatabase
 
+# Import API V2 endpoints
+from api_v2_endpoints import register_api_v2_routes
+
 
 # ============ UNIFIED ROUTES MANAGEMENT SYSTEM ============
 
@@ -1488,6 +1491,17 @@ def handle_disconnect():
     print('Client disconnected')
 
 if __name__ == '__main__':
+    # Register API V2 endpoints
+    register_api_v2_routes(
+        app=app,
+        crawling_state=crawling_state,
+        task_generator=task_generator,
+        crawl_threads=crawl_threads,
+        redbus_worker=redbus_worker,
+        log_message=log_message,
+        db_config=db_config
+    )
+    
     # Get configuration
     host = config.get('server', {}).get('host', '0.0.0.0')
     port = config.get('server', {}).get('unified_port', 5002)
@@ -1495,6 +1509,13 @@ if __name__ == '__main__':
     
     print(f"Starting Unified Crawler on {host}:{port}")
     print(f"Debug mode: {debug}")
+    print(f"API V2 endpoints registered:")
+    print(f"  - POST /api/v2/crawl/start")
+    print(f"  - POST /api/v2/crawl/stop")
+    print(f"  - GET  /api/v2/crawl/status")
+    print(f"  - GET  /api/v2/data")
+    print(f"  - GET  /api/v2/data/summary")
+    print(f"  - GET  /api/v2/data/export")
     
     # Ensure data directories exist
     os.makedirs('new_data', exist_ok=True)

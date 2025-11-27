@@ -113,6 +113,7 @@ class BusDatabase:
                 price INTEGER,
                 seat_availability VARCHAR(50),
                 crawl_timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                crawl_sequence INTEGER DEFAULT 1,
                 data_hash VARCHAR(64)
             )
             """
@@ -151,6 +152,7 @@ class BusDatabase:
                 seat_availability VARCHAR(50),
                 light_g_bar VARCHAR(50),
                 crawl_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                crawl_sequence INT DEFAULT 1,
                 data_hash VARCHAR(64)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """
@@ -187,6 +189,7 @@ class BusDatabase:
                 price INTEGER,
                 seat_availability VARCHAR(50),
                 crawl_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                crawl_sequence INTEGER DEFAULT 1,
                 data_hash VARCHAR(64)
             )
             """
@@ -212,6 +215,7 @@ class BusDatabase:
                 "CREATE INDEX IF NOT EXISTS idx_platform ON bus_data(platform)",
                 "CREATE INDEX IF NOT EXISTS idx_route_date ON bus_data(route_name, route_date)",
                 "CREATE INDEX IF NOT EXISTS idx_crawl_timestamp ON bus_data(crawl_timestamp)",
+                "CREATE INDEX IF NOT EXISTS idx_crawl_sequence ON bus_data(route_name, route_date, crawl_sequence)",
                 "CREATE INDEX IF NOT EXISTS idx_sessions_platform ON crawl_sessions(platform)",
                 "CREATE INDEX IF NOT EXISTS idx_sessions_route ON crawl_sessions(route_name, route_date)"
             ]
@@ -220,6 +224,7 @@ class BusDatabase:
                 "CREATE INDEX idx_platform ON bus_data(platform)",
                 "CREATE INDEX idx_route_date ON bus_data(route_name, route_date)",
                 "CREATE INDEX idx_crawl_timestamp ON bus_data(crawl_timestamp)",
+                "CREATE INDEX idx_crawl_sequence ON bus_data(route_name, route_date, crawl_sequence)",
                 "CREATE INDEX idx_sessions_platform ON crawl_sessions(platform)",
                 "CREATE INDEX idx_sessions_route ON crawl_sessions(route_name, route_date)"
             ]
@@ -261,6 +266,46 @@ class BusDatabase:
                     f"{bus_data.get('price', '')}"
         
         return hashlib.sha256(unique_str.encode()).hexdigest()
+    
+    def _get_next_crawl_sequence(self, route_name: str, route_date: str) -> int:
+        """
+        Get the next crawl sequence number for a given route and date on the same day
+        
+        Args:
+            route_name: Name of the route
+            route_date: Travel date of the route
+        
+        Returns:
+            Next sequence number (1 if first crawl of the day, otherwise increments)
+        """
+        sql = """
+            SELECT COALESCE(MAX(crawl_sequence), 0) as max_seq
+            FROM bus_data
+            WHERE route_name = ? 
+            AND route_date = ?
+            AND DATE(crawl_timestamp) = DATE(?)
+        """
+        
+        if self.db_type in ['mysql', 'postgresql']:
+            sql = sql.replace('?', '%s')
+        
+        try:
+            current_time = datetime.now()
+            self.cursor.execute(sql, (route_name, route_date, current_time))
+            result = self.cursor.fetchone()
+            
+            if self.db_type == 'mysql' and isinstance(result, dict):
+                max_seq = result.get('max_seq', 0) or 0
+            elif result:
+                max_seq = result[0] if isinstance(result, tuple) else result
+            else:
+                max_seq = 0
+            
+            return max_seq + 1
+            
+        except Exception as e:
+            print(f"Warning: Could not get crawl sequence, using default: {e}")
+            return 1
     
     def _ensure_connection(self):
         """Ensure database connection is alive"""
@@ -311,6 +356,17 @@ class BusDatabase:
         data_hash = self._generate_hash(normalized_data)
         normalized_data['data_hash'] = data_hash
         
+        # Get crawl sequence - use cached value if available from bulk insert
+        if '_crawl_sequence' in data:
+            crawl_sequence = data['_crawl_sequence']
+        else:
+            # Calculate it for single inserts
+            crawl_sequence = self._get_next_crawl_sequence(
+                normalized_data['route_name'], 
+                normalized_data['route_date']
+            )
+        normalized_data['crawl_sequence'] = crawl_sequence
+        
         # Convert empty strings to None for numeric fields
         if normalized_data['star_rating'] == '' or normalized_data['star_rating'] is None:
             normalized_data['star_rating'] = None
@@ -323,8 +379,8 @@ class BusDatabase:
         sql = """
         INSERT INTO bus_data (
             platform, route_name, route_date, route_link, bus_name, bus_type,
-            departing_time, duration, reaching_time, star_rating, price, light_g_bar, seat_availability, data_hash
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            departing_time, duration, reaching_time, star_rating, price, light_g_bar, seat_availability, crawl_sequence, data_hash
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         
         if self.db_type in ['mysql', 'postgresql']:
@@ -343,8 +399,9 @@ class BusDatabase:
                 normalized_data['reaching_time'],
                 normalized_data['star_rating'],
                 normalized_data['price'],
-                normalized_data['g_light_bar'],
+                normalized_data['light_g_bar'],
                 normalized_data['seat_availability'],
+                normalized_data['crawl_sequence'],
                 normalized_data['data_hash']
             ))
             self.conn.commit()
@@ -367,8 +424,24 @@ class BusDatabase:
         """
         stats = {'inserted': 0, 'errors': 0}
         
+        # Calculate crawl_sequence once at the start for this bulk insert
+        # All records in this batch will have the same sequence number
+        crawl_sequence_cache = {}
+        
         for data in data_list:
             try:
+                # Get route info
+                route_name = data.get('Route_Name', data.get('route_name', ''))
+                route_date = data.get('Route_Date', data.get('route_date', ''))
+                cache_key = f"{route_name}|{route_date}"
+                
+                # Get or calculate sequence number for this route/date
+                if cache_key not in crawl_sequence_cache:
+                    crawl_sequence_cache[cache_key] = self._get_next_crawl_sequence(route_name, route_date)
+                
+                # Add sequence to data (will be used in insert_bus_data)
+                data['_crawl_sequence'] = crawl_sequence_cache[cache_key]
+                
                 if self.insert_bus_data(data, platform):
                     stats['inserted'] += 1
             except Exception as e:
