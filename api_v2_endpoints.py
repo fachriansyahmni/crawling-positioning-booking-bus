@@ -25,7 +25,8 @@ def register_api_v2_routes(app, crawling_state, task_generator, crawl_threads, r
             "platform": "redbus",
             "routes": ["Jakarta-Semarang", "Jakarta-Surabaya"],
             "dates": ["2025-11-28", "2025-11-29"],
-            "max_buses": 50  // Optional: limit buses per task
+            "max_buses": 50,  // Optional: limit buses per task
+            "max_scroll": 5   // Optional: limit scroll iterations per task
         }
         
         Response:
@@ -36,6 +37,7 @@ def register_api_v2_routes(app, crawling_state, task_generator, crawl_threads, r
             "routes": ["Jakarta-Semarang"],
             "dates": ["2025-11-28"],
             "max_buses": 50,
+            "max_scroll": 5,
             "status": "started"
         }
         """
@@ -55,6 +57,7 @@ def register_api_v2_routes(app, crawling_state, task_generator, crawl_threads, r
             routes = data.get('routes', [])
             dates = data.get('dates', [])
             max_buses = data.get('max_buses', None)
+            max_scroll = data.get('max_scroll', None)
             
             # Validate max_buses
             if max_buses is not None:
@@ -64,6 +67,15 @@ def register_api_v2_routes(app, crawling_state, task_generator, crawl_threads, r
                         max_buses = None
                 except (ValueError, TypeError):
                     max_buses = None
+            
+            # Validate max_scroll
+            if max_scroll is not None:
+                try:
+                    max_scroll = int(max_scroll)
+                    if max_scroll <= 0:
+                        max_scroll = None
+                except (ValueError, TypeError):
+                    max_scroll = None
             
             if not routes or not dates:
                 return jsonify({'error': 'Routes and dates are required'}), 400
@@ -80,6 +92,7 @@ def register_api_v2_routes(app, crawling_state, task_generator, crawl_threads, r
             crawling_state[platform]['progress'] = 0
             crawling_state[platform]['completed_tasks'] = 0
             crawling_state[platform]['max_buses'] = max_buses
+            crawling_state[platform]['max_scroll'] = max_scroll
             
             os.makedirs('new_data', exist_ok=True)
             
@@ -93,7 +106,7 @@ def register_api_v2_routes(app, crawling_state, task_generator, crawl_threads, r
             
             # Start crawling thread
             import threading
-            crawl_threads[platform] = threading.Thread(target=redbus_worker, args=(tasks, max_buses))
+            crawl_threads[platform] = threading.Thread(target=redbus_worker, args=(tasks, max_buses, max_scroll))
             crawl_threads[platform].start()
             
             response_data = {
@@ -108,6 +121,10 @@ def register_api_v2_routes(app, crawling_state, task_generator, crawl_threads, r
             if max_buses:
                 response_data['max_buses'] = max_buses
                 response_data['message'] += f' (max {max_buses} buses per task)'
+            
+            if max_scroll:
+                response_data['max_scroll'] = max_scroll
+                response_data['message'] += f' (max {max_scroll} scrolls per task)'
             
             return jsonify(response_data), 200
             

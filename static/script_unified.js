@@ -164,6 +164,10 @@ async function startUnifiedCrawling() {
     const maxBusesInput = document.getElementById('unified-max-buses').value;
     const maxBuses = maxBusesInput ? parseInt(maxBusesInput) : null;
 
+    // Get max scroll limit
+    const maxScrollInput = document.getElementById('unified-max-scroll').value;
+    const maxScroll = maxScrollInput ? parseInt(maxScrollInput) : null;
+
     // Show progress section
     document.getElementById('unified-progress-section').style.display = 'block';
     document.getElementById('unified-start-btn').style.display = 'none';
@@ -178,7 +182,7 @@ async function startUnifiedCrawling() {
 
     if (redbusChecked) {
         document.getElementById('redbus-progress-section').style.display = 'block';
-        promises.push(startRedbusCrawling(selectedRoutes, selectedDates, maxBuses));
+        promises.push(startRedbusCrawling(selectedRoutes, selectedDates, maxBuses, maxScroll));
     }
 
     // Wait for all to start
@@ -223,7 +227,7 @@ async function startTravelokaCrawling(routes, dates) {
 }
 
 // Start Redbus Crawling
-async function startRedbusCrawling(routes, dates, maxBuses = null) {
+async function startRedbusCrawling(routes, dates, maxBuses = null, maxScroll = null) {
     const data = {
         routes: routes,
         dates: dates
@@ -232,6 +236,11 @@ async function startRedbusCrawling(routes, dates, maxBuses = null) {
     // Add max_buses if provided
     if (maxBuses !== null && maxBuses > 0) {
         data.max_buses = maxBuses;
+    }
+    
+    // Add max_scroll if provided
+    if (maxScroll !== null && maxScroll > 0) {
+        data.max_scroll = maxScroll;
     }
 
     try {
@@ -252,6 +261,11 @@ async function startRedbusCrawling(routes, dates, maxBuses = null) {
         // Show max_buses info if set
         if (result.max_buses) {
             console.log(`Max buses limit: ${result.max_buses} per task`);
+        }
+        
+        // Show max_scroll info if set
+        if (result.max_scroll) {
+            console.log(`Max scroll limit: ${result.max_scroll} iterations per task`);
         }
     } catch (error) {
         console.error('Redbus error:', error);

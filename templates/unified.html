@@ -125,6 +125,24 @@
                             </small>
                         </div>
 
+                        <!-- Max Scroll Limit -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">
+                                <i class="bi bi-arrow-down-circle"></i> Max Scroll Iterations (Optional):
+                            </label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="unified-max-scroll" 
+                                       placeholder="Leave empty for unlimited" min="1" step="1">
+                                <span class="input-group-text">
+                                    <i class="bi bi-info-circle" title="Limit page scroll iterations for faster crawling"></i>
+                                </span>
+                            </div>
+                            <small class="text-muted">
+                                <i class="bi bi-lightning-fill"></i> 
+                                Faster testing! Set scroll limit (e.g., 3, 5) to stop scrolling early. Leave empty to scroll until page end.
+                            </small>
+                        </div>
+
                         <!-- Start Button -->
                         <div class="mb-4">
                             <button class="btn btn-success btn-lg w-100" id="unified-start-btn"

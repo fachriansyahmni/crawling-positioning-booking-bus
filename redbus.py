@@ -100,7 +100,7 @@ def initialize_driver(headless=None):
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
     options.add_argument('--window-size=1920,1080')
-    options.add_argument('--start-maximized')
+    # options.add_argument('--start-maximized')
     
     # Fix for "session not created" error on Windows
     options.add_argument('--disable-extensions')
@@ -168,7 +168,7 @@ def format_url_with_date(url, date_str):
         print(f"Invalid date format: {date_str}. Expected YYYY-MM-DD")
         return url
 
-def get_bus_detail(driver, url, route, date_str, max_buses=None):
+def get_bus_detail(driver, url, route, date_str, max_buses=None, max_scroll=None):
     """
     Get bus details for a specific route and date
     Args:
@@ -177,12 +177,15 @@ def get_bus_detail(driver, url, route, date_str, max_buses=None):
         route: Route name
         date_str: Date in YYYY-MM-DD format
         max_buses: Maximum number of buses to scrape (None = all buses)
+        max_scroll: Maximum number of scroll iterations (None = unlimited, scroll until end)
     """
     try:
         formatted_url = format_url_with_date(url, date_str)
         print(f"Accessing URL: {formatted_url}")
         if max_buses:
             print(f"  Max buses limit: {max_buses}")
+        if max_scroll:
+            print(f"  Max scroll limit: {max_scroll} iterations")
         driver.get(formatted_url)
         
         wait = WebDriverWait(driver, 30)
@@ -197,15 +200,32 @@ def get_bus_detail(driver, url, route, date_str, max_buses=None):
         print("Memulai proses scroll untuk memuat semua data...")
         print(route, date_str)
         last_height = driver.execute_script("return document.body.scrollHeight")
+        scroll_count = 0
 
         while True:
             driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
             time.sleep(random.uniform(2.5, 4.5))
             new_height = driver.execute_script("return document.body.scrollHeight")
+            scroll_count += 1
+            
+            # Check if max_scroll limit reached
+            if max_scroll and scroll_count >= max_scroll:
+                print(f"Reached max scroll limit ({max_scroll} scrolls). Stopping scroll.")
+                break
+            
+            # Check if page height unchanged (end of page)
             if new_height == last_height:
                 print("Telah mencapai akhir halaman. Semua data telah dimuat.")
                 break # Keluar dari loop jika tinggi halaman tidak lagi bertambah
+            
             last_height = new_height
+        
+        if max_scroll and scroll_count < max_scroll:
+            print(f"Completed {scroll_count} scroll(s) - reached end of page")
+        elif max_scroll:
+            print(f"Completed {scroll_count} scroll(s) - stopped at limit")
+        else:
+            print(f"Completed {scroll_count} scroll(s)")
         # === LOGIKA SCROLL DINAMIS SELESAI ===
         bus_items = driver.find_elements(By.CSS_SELECTOR, bus_item_selector)
         time.sleep(random.uniform(2, 4))
@@ -428,24 +448,47 @@ def get_user_input():
     else:
         print("✓ No limit set - will crawl all buses")
     
+    # Max scroll limit
+    print("\n" + "-"*60)
+    print("Max Scroll Limit (optional - for faster crawling):")
+    max_scroll_input = input("Enter max scroll iterations (press Enter for unlimited): ").strip()
+    
+    max_scroll = None
+    if max_scroll_input:
+        try:
+            max_scroll = int(max_scroll_input)
+            if max_scroll <= 0:
+                print("Invalid number. Using unlimited.")
+                max_scroll = None
+            else:
+                print(f"✓ Max scroll limit set to: {max_scroll} scroll(s)")
+        except ValueError:
+            print("Invalid input. Using unlimited.")
+            max_scroll = None
+    else:
+        print("✓ No limit set - will scroll until end of page")
+    
     confirm = input("\nProceed with scraping? (y/n): ").strip().lower()
     if confirm != 'y':
         print("Scraping cancelled.")
         sys.exit(0)
     
-    return selected_routes, selected_dates, max_buses
+    return selected_routes, selected_dates, max_buses, max_scroll
 
-def scrape_with_selection(selected_routes, selected_dates, max_buses=None):
+def scrape_with_selection(selected_routes, selected_dates, max_buses=None, max_scroll=None):
     """
     Scrape with user-selected routes and dates
     Args:
         selected_routes: Dictionary of route names and URLs
         selected_dates: List of date strings
         max_buses: Maximum buses per route/date (None = unlimited)
+        max_scroll: Maximum scroll iterations (None = unlimited)
     """
     print("\nStarting scraping process...")
     if max_buses:
         print(f"Max buses per route/date: {max_buses}")
+    if max_scroll:
+        print(f"Max scroll iterations: {max_scroll}")
     all_bus_details = []
     total_tasks = len(selected_routes) * len(selected_dates)
     current_task = 0
@@ -460,7 +503,7 @@ def scrape_with_selection(selected_routes, selected_dates, max_buses=None):
                 print("-" * 60)
                 
                 try:
-                    bus_details = get_bus_detail(driver, url, route_name, date_str, max_buses=max_buses)
+                    bus_details = get_bus_detail(driver, url, route_name, date_str, max_buses=max_buses, max_scroll=max_scroll)
                     if bus_details:
                         df_bus_details = pd.DataFrame(bus_details)
                         # Use simplified filename with date
@@ -518,9 +561,9 @@ if __name__ == "__main__":
         all_bus_details = scrape_all_pages()
     else:
         # Interactive mode - get user input
-        selected_routes, selected_dates, max_buses = get_user_input()
+        selected_routes, selected_dates, max_buses, max_scroll = get_user_input()
         print(f"\nStarting scraping for {len(selected_routes)} routes and {len(selected_dates)} dates...")
-        all_bus_details = scrape_with_selection(selected_routes, selected_dates, max_buses=max_buses)
+        all_bus_details = scrape_with_selection(selected_routes, selected_dates, max_buses=max_buses, max_scroll=max_scroll)
     
     if all_bus_details:
         print(f"\n✓ Total data successfully scraped: {len(all_bus_details)} buses")
