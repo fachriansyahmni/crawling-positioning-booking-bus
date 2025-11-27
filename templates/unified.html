@@ -107,6 +107,24 @@
                             </div>
                         </div>
 
+                        <!-- Max Buses Limit -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">
+                                <i class="bi bi-speedometer2"></i> Max Buses per Task (Optional):
+                            </label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="unified-max-buses" 
+                                       placeholder="Leave empty for unlimited" min="1" step="1">
+                                <span class="input-group-text">
+                                    <i class="bi bi-info-circle" title="Limit buses scraped per route/date combination"></i>
+                                </span>
+                            </div>
+                            <small class="text-muted">
+                                <i class="bi bi-lightbulb"></i> 
+                                Leave empty to crawl all buses. Set a number (e.g., 10, 50) to limit results for faster testing.
+                            </small>
+                        </div>
+
                         <!-- Start Button -->
                         <div class="mb-4">
                             <button class="btn btn-success btn-lg w-100" id="unified-start-btn"

@@ -24,7 +24,8 @@ def register_api_v2_routes(app, crawling_state, task_generator, crawl_threads, r
         {
             "platform": "redbus",
             "routes": ["Jakarta-Semarang", "Jakarta-Surabaya"],
-            "dates": ["2025-11-28", "2025-11-29"]
+            "dates": ["2025-11-28", "2025-11-29"],
+            "max_buses": 50  // Optional: limit buses per task
         }
         
         Response:
@@ -34,6 +35,7 @@ def register_api_v2_routes(app, crawling_state, task_generator, crawl_threads, r
             "total_tasks": 4,
             "routes": ["Jakarta-Semarang"],
             "dates": ["2025-11-28"],
+            "max_buses": 50,
             "status": "started"
         }
         """
@@ -52,6 +54,16 @@ def register_api_v2_routes(app, crawling_state, task_generator, crawl_threads, r
             
             routes = data.get('routes', [])
             dates = data.get('dates', [])
+            max_buses = data.get('max_buses', None)
+            
+            # Validate max_buses
+            if max_buses is not None:
+                try:
+                    max_buses = int(max_buses)
+                    if max_buses <= 0:
+                        max_buses = None
+                except (ValueError, TypeError):
+                    max_buses = None
             
             if not routes or not dates:
                 return jsonify({'error': 'Routes and dates are required'}), 400
@@ -67,6 +79,7 @@ def register_api_v2_routes(app, crawling_state, task_generator, crawl_threads, r
             crawling_state[platform]['logs'] = []
             crawling_state[platform]['progress'] = 0
             crawling_state[platform]['completed_tasks'] = 0
+            crawling_state[platform]['max_buses'] = max_buses
             
             os.makedirs('new_data', exist_ok=True)
             
@@ -80,17 +93,23 @@ def register_api_v2_routes(app, crawling_state, task_generator, crawl_threads, r
             
             # Start crawling thread
             import threading
-            crawl_threads[platform] = threading.Thread(target=redbus_worker, args=(tasks,))
+            crawl_threads[platform] = threading.Thread(target=redbus_worker, args=(tasks, max_buses))
             crawl_threads[platform].start()
             
-            return jsonify({
+            response_data = {
                 'message': f'{platform} crawling started',
                 'platform': platform,
                 'total_tasks': len(tasks),
                 'routes': routes,
                 'dates': dates,
                 'status': 'started'
-            }), 200
+            }
+            
+            if max_buses:
+                response_data['max_buses'] = max_buses
+                response_data['message'] += f' (max {max_buses} buses per task)'
+            
+            return jsonify(response_data), 200
             
         except Exception as e:
             return jsonify({'error': str(e)}), 500

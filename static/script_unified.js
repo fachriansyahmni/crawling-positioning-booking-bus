@@ -160,6 +160,10 @@ async function startUnifiedCrawling() {
         selectedDates = generateDateRange(defaultStart, defaultEnd);
     }
 
+    // Get max buses limit
+    const maxBusesInput = document.getElementById('unified-max-buses').value;
+    const maxBuses = maxBusesInput ? parseInt(maxBusesInput) : null;
+
     // Show progress section
     document.getElementById('unified-progress-section').style.display = 'block';
     document.getElementById('unified-start-btn').style.display = 'none';
@@ -174,7 +178,7 @@ async function startUnifiedCrawling() {
 
     if (redbusChecked) {
         document.getElementById('redbus-progress-section').style.display = 'block';
-        promises.push(startRedbusCrawling(selectedRoutes, selectedDates));
+        promises.push(startRedbusCrawling(selectedRoutes, selectedDates, maxBuses));
     }
 
     // Wait for all to start
@@ -219,11 +223,16 @@ async function startTravelokaCrawling(routes, dates) {
 }
 
 // Start Redbus Crawling
-async function startRedbusCrawling(routes, dates) {
+async function startRedbusCrawling(routes, dates, maxBuses = null) {
     const data = {
         routes: routes,
         dates: dates
     };
+    
+    // Add max_buses if provided
+    if (maxBuses !== null && maxBuses > 0) {
+        data.max_buses = maxBuses;
+    }
 
     try {
         const response = await fetch('/api/start/redbus', {
@@ -239,6 +248,11 @@ async function startRedbusCrawling(routes, dates) {
 
         const result = await response.json();
         console.log('Redbus started:', result);
+        
+        // Show max_buses info if set
+        if (result.max_buses) {
+            console.log(`Max buses limit: ${result.max_buses} per task`);
+        }
     } catch (error) {
         console.error('Redbus error:', error);
         throw error;

@@ -543,8 +543,13 @@ def update_progress(platform):
     })
 
 # Redbus normal sequential crawling
-def redbus_worker(tasks):
-    """Sequential worker function for Redbus crawling using RouteManager"""
+def redbus_worker(tasks, max_buses=None):
+    """
+    Sequential worker function for Redbus crawling using RouteManager
+    Args:
+        tasks: List of crawling tasks
+        max_buses: Maximum buses to scrape per task (None = unlimited)
+    """
     driver = None
     db = None
     
@@ -556,6 +561,8 @@ def redbus_worker(tasks):
         
         log_message('redbus', f'Starting sequential crawling...', 'info')
         log_message('redbus', f'Total tasks: {len(tasks)}', 'info')
+        if max_buses:
+            log_message('redbus', f'Max buses limit: {max_buses} per task', 'info')
         
         # Initialize database connection
         try:
@@ -589,7 +596,7 @@ def redbus_worker(tasks):
                 
                 log_message('redbus', f'Starting {task_name}...', 'info')
                 
-                bus_details = get_redbus_data(driver, url, route_name, date)
+                bus_details = get_redbus_data(driver, url, route_name, date, max_buses=max_buses)
                 
                 if bus_details:
                     # Save to CSV file
@@ -818,6 +825,16 @@ def start_crawling(platform):
     if platform == 'redbus':
         selected_routes = data.get('routes', [])
         selected_dates = data.get('dates', [])
+        max_buses = data.get('max_buses', None)  # Get max_buses parameter
+        
+        # Convert max_buses to int if provided
+        if max_buses is not None:
+            try:
+                max_buses = int(max_buses)
+                if max_buses <= 0:
+                    max_buses = None
+            except (ValueError, TypeError):
+                max_buses = None
         
         # Convert dates to full format
         dates = []
@@ -831,13 +848,22 @@ def start_crawling(platform):
         # Generate tasks using RouteManager
         tasks = task_generator.generate_redbus_tasks(selected_routes, dates)
         
-        crawling_state['redbus']['total_tasks'] = len(tasks) 
+        crawling_state['redbus']['total_tasks'] = len(tasks)
+        crawling_state['redbus']['max_buses'] = max_buses  # Store in state
         
-        thread = threading.Thread(target=redbus_worker, args=(tasks,))
+        thread = threading.Thread(target=redbus_worker, args=(tasks, max_buses))
         thread.start()
         crawl_threads['redbus'] = thread
         
-        return jsonify({'message': 'Redbus crawling started', 'total_tasks': len(tasks)})
+        response_msg = f'Redbus crawling started with {len(tasks)} tasks'
+        if max_buses:
+            response_msg += f' (max {max_buses} buses per task)'
+        
+        return jsonify({
+            'message': response_msg,
+            'total_tasks': len(tasks),
+            'max_buses': max_buses
+        })
 
 @app.route('/api/stop/<platform>', methods=['POST'])
 def stop_crawling(platform):

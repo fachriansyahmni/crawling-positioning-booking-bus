@@ -9,6 +9,10 @@ import os
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 import pandas as pd
+import warnings
+
+# Suppress SQLAlchemy warning from pandas
+warnings.filterwarnings('ignore', message='.*pandas only supports SQLAlchemy.*')
 
 
 class BusDatabase:
