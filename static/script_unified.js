@@ -695,7 +695,12 @@ async function loadDataFiles(filter = 'all') {
                         </small>
                     </div>
                     <div class="col-md-6 text-end"> 
-                        <button class="btn btn-sm btn-success" onclick="downloadFile('${file.filename}')">
+                        <button class="btn btn-sm btn-primary" onclick="syncToDatabase('${file.filename}', '${file.platform}')" 
+                                title="Import this CSV file into the database">
+                            <i class="bi bi-cloud-upload"></i> Sync to DB
+                        </button>
+                        <button class="btn btn-sm btn-success" onclick="downloadFile('${file.filename}')"
+                                title="Download this CSV file">
                             <i class="bi bi-download"></i> Download
                         </button>
                     </div>
@@ -782,6 +787,131 @@ async function previewFile(filename) {
 
 function downloadFile(filename) {
     window.location.href = `/api/download/${filename}`;
+}
+
+// Sync CSV file to database
+async function syncToDatabase(filename, platform) {
+    if (!confirm(`Sync ${filename} to database?\n\nThis will import all records from this CSV file into the database.`)) {
+        return;
+    }
+
+    const button = event.target.closest('button');
+    const originalHtml = button.innerHTML;
+    button.disabled = true;
+    button.innerHTML = '<i class="bi bi-hourglass-split"></i> Syncing...';
+
+    try {
+        const response = await fetch('/api/data/sync', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                filename: filename,
+                platform: platform
+            })
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            const message = `✓ Sync Complete!\n\n` +
+                `Total Records: ${result.total_records}\n` +
+                `Inserted: ${result.inserted}\n` +
+                `Duplicates Skipped: ${result.duplicates || 0}\n` +
+                `Errors: ${result.errors}\n\n` +
+                `File: ${result.filename}`;
+
+            alert(message);
+
+            if (result.duplicates > 0) {
+                button.innerHTML = '<i class="bi bi-check-circle"></i> Synced (duplicates skipped)';
+            } else {
+                button.innerHTML = '<i class="bi bi-check-circle"></i> Synced';
+            }
+            button.classList.remove('btn-primary');
+            button.classList.add('btn-success');
+        } else {
+            throw new Error(result.error || 'Sync failed');
+        }
+    } catch (error) {
+        console.error('Sync error:', error);
+        alert(`✗ Sync Failed\n\n${error.message}`);
+        button.disabled = false;
+        button.innerHTML = originalHtml;
+    }
+}
+
+// Sync all CSV files to database
+async function syncAllToDatabase() {
+    // Get current files list
+    const response = await fetch('/api/data/all');
+    const files = await response.json();
+
+    if (files.length === 0) {
+        alert('No files to sync');
+        return;
+    }
+
+    if (!confirm(`Sync ALL ${files.length} CSV files to database?\n\nThis may take a while...`)) {
+        return;
+    }
+
+    const button = document.getElementById('sync-all-btn');
+    const originalHtml = button.innerHTML;
+    button.disabled = true;
+
+    let totalInserted = 0;
+    let totalDuplicates = 0;
+    let totalErrors = 0;
+    let filesProcessed = 0;
+
+    for (const file of files) {
+        filesProcessed++;
+        button.innerHTML = `<i class="bi bi-hourglass-split"></i> Syncing ${filesProcessed}/${files.length}...`;
+
+        try {
+            const syncResponse = await fetch('/api/data/sync', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    filename: file.filename,
+                    platform: file.platform
+                })
+            });
+
+            const result = await syncResponse.json();
+
+            if (syncResponse.ok) {
+                totalInserted += result.inserted;
+                totalDuplicates += result.duplicates || 0;
+                totalErrors += result.errors;
+            } else {
+                totalErrors++;
+                console.error(`Failed to sync ${file.filename}:`, result.error);
+            }
+        } catch (error) {
+            totalErrors++;
+            console.error(`Error syncing ${file.filename}:`, error);
+        }
+    }
+
+    button.disabled = false;
+    button.innerHTML = originalHtml;
+
+    // Show summary
+    const summary = `✓ Sync All Complete!\n\n` +
+        `Files Processed: ${filesProcessed}\n` +
+        `Total Inserted: ${totalInserted}\n` +
+        `Total Duplicates: ${totalDuplicates}\n` +
+        `Total Errors: ${totalErrors}`;
+
+    alert(summary);
+
+    // Refresh file list
+    refreshData();
 }
 
 // --- Database view controls & helpers (Files <-> Database toggle) ---

@@ -611,15 +611,20 @@ def redbus_worker(tasks, max_buses=None, max_scroll=None, filter_buses=None):
                     filename = f'new_data/redbus_{route_name}-{date}_{timestamp}.csv'
                     df.to_csv(filename, index=False, encoding='utf-8')
                     
-                    # Insert to database
+                    # Insert to database (continue even if fails)
                     if db:
                         try:
-                            db_stats = db.insert_bulk_data(bus_details, platform='redbus')
-                            log_message('redbus', 
-                                      f'💾 Database: {db_stats["inserted"]} records inserted', 
-                                      'info')
+                            db_stats = db.insert_bulk_data(bus_details, platform='redbus', continue_on_error=True)
+                            if db_stats['inserted'] > 0 or db_stats.get('duplicates', 0) > 0:
+                                log_message('redbus', 
+                                          f'💾 Database: {db_stats["inserted"]} inserted, {db_stats.get("duplicates", 0)} duplicates, {db_stats["errors"]} errors', 
+                                          'info')
+                            if db_stats['errors'] > 0:
+                                log_message('redbus', 
+                                          f'⚠ Database insert had {db_stats["errors"]} errors (data saved to CSV)', 
+                                          'warning')
                         except Exception as db_error:
-                            log_message('redbus', f'⚠ Database insert error: {str(db_error)}', 'warning')
+                            log_message('redbus', f'⚠ Database error: {str(db_error)} (data saved to CSV)', 'warning')
                     
                     crawling_state['redbus']['stats']['successful'] += 1
                     crawling_state['redbus']['stats']['total_scraped'] += len(bus_details)
@@ -1314,6 +1319,55 @@ def download_file(filename):
         return jsonify({'error': 'File not found'}), 404
     
     return send_file(filepath, as_attachment=True)
+
+@app.route('/api/data/sync', methods=['POST'])
+def sync_data_to_database():
+    """Sync CSV file data to database"""
+    try:
+        data = request.json
+        filename = data.get('filename')
+        platform = data.get('platform', 'redbus')
+        
+        if not filename:
+            return jsonify({'error': 'Filename is required'}), 400
+        
+        filepath = os.path.join('new_data', filename)
+        
+        if not os.path.exists(filepath):
+            return jsonify({'error': 'File not found'}), 404
+        
+        # Initialize database connection
+        try:
+            db = BusDatabase(db_type=db_config.get('type', 'sqlite'), db_config=db_config)
+        except Exception as db_error:
+            return jsonify({'error': f'Database connection failed: {str(db_error)}'}), 500
+        
+        try:
+            # Read CSV file
+            df = pd.read_csv(filepath)
+            data_list = df.to_dict('records')
+            
+            # Insert to database
+            stats = db.insert_bulk_data(data_list, platform=platform, continue_on_error=True)
+            
+            # Close database connection
+            db.close()
+            
+            return jsonify({
+                'success': True,
+                'filename': filename,
+                'inserted': stats['inserted'],
+                'errors': stats['errors'],
+                'duplicates': stats.get('duplicates', 0),
+                'total_records': len(data_list)
+            })
+            
+        except Exception as import_error:
+            db.close()
+            return jsonify({'error': f'Import failed: {str(import_error)}'}), 500
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 # ============ ML Training & Prediction API ============
 

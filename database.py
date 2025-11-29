@@ -52,18 +52,25 @@ class BusDatabase:
                 
                 print(f"Connecting to MySQL at {self.db_config.get('host')}:{self.db_config.get('port', 3306)}...")
                 
-                self.conn = mysql.connector.connect(
-                    host=self.db_config.get('host', 'localhost'),
-                    port=self.db_config.get('port', 3306),
-                    database=self.db_config['database'],
-                    user=self.db_config['user'],
-                    password=self.db_config['password'],
-                    connection_timeout=10,  # 10 seconds timeout
-                    connect_timeout=10,     # Alternative timeout parameter
-                    use_pure=True,          # Use pure Python implementation (fixes hanging issue)
-                    autocommit=False,
-                    ssl_disabled=True
-                )
+                # Connection configuration with better defaults
+                connection_config = {
+                    'host': self.db_config.get('host', 'localhost'),
+                    'port': self.db_config.get('port', 3306),
+                    'database': self.db_config['database'],
+                    'user': self.db_config['user'],
+                    'password': self.db_config['password'],
+                    'connection_timeout': 30,  # Increased timeout
+                    'use_pure': True,          # Use pure Python implementation
+                    'autocommit': True,        # Enable autocommit to prevent transaction issues
+                    'pool_size': 5,            # Connection pool
+                    'pool_reset_session': True # Reset session on pool get
+                }
+                
+                # Handle SSL configuration
+                if self.db_config.get('ssl_disabled', False):
+                    connection_config['ssl_disabled'] = True
+                
+                self.conn = mysql.connector.connect(**connection_config)
                 self.cursor = self.conn.cursor(dictionary=True)
                 print(f"✓ Connected to MySQL database: {self.db_config['database']}")
             except ImportError:
@@ -272,6 +279,29 @@ class BusDatabase:
         
         return hashlib.sha256(unique_str.encode()).hexdigest()
     
+    def _record_exists(self, data_hash: str) -> bool:
+        """Check if a record with this hash already exists"""
+        sql = "SELECT COUNT(*) as count FROM bus_data WHERE data_hash = ?"
+        
+        if self.db_type in ['mysql', 'postgresql']:
+            sql = sql.replace('?', '%s')
+        
+        try:
+            self.cursor.execute(sql, (data_hash,))
+            result = self.cursor.fetchone()
+            
+            if self.db_type == 'mysql' and isinstance(result, dict):
+                count = result.get('count', 0)
+            elif result:
+                count = result[0] if isinstance(result, tuple) else result
+            else:
+                count = 0
+            
+            return count > 0
+        except Exception as e:
+            print(f"Warning: Could not check for duplicate: {e}")
+            return False
+    
     def _get_next_crawl_sequence(self, route_name: str, route_date: str) -> int:
         """
         Get the next crawl sequence number for a given route and date on the same day
@@ -312,34 +342,58 @@ class BusDatabase:
             print(f"Warning: Could not get crawl sequence, using default: {e}")
             return 1
     
-    def _ensure_connection(self):
-        """Ensure database connection is alive"""
-        try:
-            if self.db_type == 'mysql':
-                self.conn.ping(reconnect=True)
-            elif self.db_type == 'sqlite':
-                self.cursor.execute("SELECT 1")
-            return True
-        except Exception as e:
-            print(f"⚠️ Database connection lost, reconnecting: {e}")
+    def _ensure_connection(self, max_retries=3):
+        """Ensure database connection is alive with retry logic"""
+        for attempt in range(max_retries):
             try:
-                self._connect()
+                if self.db_type == 'mysql':
+                    if self.conn:
+                        self.conn.ping(reconnect=True)
+                    else:
+                        self._connect()
+                elif self.db_type == 'sqlite':
+                    self.cursor.execute("SELECT 1")
                 return True
-            except Exception as reconnect_error:
-                print(f"❌ Failed to reconnect: {reconnect_error}")
-                return False
+            except Exception as e:
+                print(f"⚠️ Database connection check failed (attempt {attempt + 1}/{max_retries}): {e}")
+                if attempt < max_retries - 1:
+                    try:
+                        if self.cursor:
+                            self.cursor.close()
+                        if self.conn:
+                            self.conn.close()
+                    except:
+                        pass
+                    
+                    import time
+                    time.sleep(2 ** attempt)  # Exponential backoff
+                    
+                    try:
+                        self._connect()
+                    except Exception as reconnect_error:
+                        print(f"❌ Reconnection attempt {attempt + 1} failed: {reconnect_error}")
+                        if attempt == max_retries - 1:
+                            return False
+                else:
+                    return False
+        return False
             
-    def insert_bus_data(self, data: Dict, platform: str) -> bool:
+    def insert_bus_data(self, data: Dict, platform: str, retry_on_failure=True) -> bool:
         """
-        Insert single bus data record
+        Insert single bus data record with retry logic
         
         Args:
             data: Dictionary containing bus data
             platform: 'redbus'
+            retry_on_failure: Retry on connection failures
         
         Returns:
             True if inserted successfully
         """
+        # Ensure connection is alive before insert
+        if not self._ensure_connection():
+            raise Exception("Failed processing format-parameters; MySQL Connection not available")
+        
         # Normalize field names (handle both formats)
         normalized_data = {
             'platform': platform.lower(),
@@ -357,9 +411,14 @@ class BusDatabase:
             'seat_availability': data.get('Seat_Availability', data.get('seat_availability', ''))
         }
         
-        # Generate hash for reference (not for duplicate prevention)
+        # Generate hash and check for duplicates
         data_hash = self._generate_hash(normalized_data)
         normalized_data['data_hash'] = data_hash
+        
+        # Check if record already exists
+        if self._record_exists(data_hash):
+            # Record already exists, skip insertion
+            return False
         
         # Get crawl sequence - use cached value if available from bulk insert
         if '_crawl_sequence' in data:
@@ -391,49 +450,75 @@ class BusDatabase:
         if self.db_type in ['mysql', 'postgresql']:
             sql = sql.replace('?', '%s')
         
-        try:
-            self.cursor.execute(sql, (
-                normalized_data['platform'],
-                normalized_data['route_name'],
-                normalized_data['route_date'],
-                normalized_data['route_link'],
-                normalized_data['bus_name'],
-                normalized_data['bus_type'],
-                normalized_data['departing_time'],
-                normalized_data['duration'],
-                normalized_data['reaching_time'],
-                normalized_data['star_rating'],
-                normalized_data['price'],
-                normalized_data['light_g_bar'],
-                normalized_data['seat_availability'],
-                normalized_data['crawl_sequence'],
-                normalized_data['data_hash']
-            ))
-            self.conn.commit()
-            return True
-        except Exception as e:
-            print(f"Error inserting data: {e}")
-            self.conn.rollback()
-            raise
+        max_retries = 3 if retry_on_failure else 1
+        for attempt in range(max_retries):
+            try:
+                self.cursor.execute(sql, (
+                    normalized_data['platform'],
+                    normalized_data['route_name'],
+                    normalized_data['route_date'],
+                    normalized_data['route_link'],
+                    normalized_data['bus_name'],
+                    normalized_data['bus_type'],
+                    normalized_data['departing_time'],
+                    normalized_data['duration'],
+                    normalized_data['reaching_time'],
+                    normalized_data['star_rating'],
+                    normalized_data['price'],
+                    normalized_data['light_g_bar'],
+                    normalized_data['seat_availability'],
+                    normalized_data['crawl_sequence'],
+                    normalized_data['data_hash']
+                ))
+                if not self.db_type == 'mysql' or not self.conn.autocommit:
+                    self.conn.commit()
+                return True
+            except Exception as e:
+                error_msg = str(e)
+                is_connection_error = any(x in error_msg for x in ['Lost connection', 'Broken pipe', 'EOF occurred', 'MySQL server has gone away'])
+                
+                if is_connection_error and attempt < max_retries - 1:
+                    print(f"⚠️ Connection error during insert (attempt {attempt + 1}/{max_retries}): {e}")
+                    import time
+                    time.sleep(2)
+                    # Reconnect
+                    if not self._ensure_connection():
+                        print(f"Error inserting data: {e}")
+                        raise Exception("Failed processing format-parameters; MySQL Connection not available")
+                else:
+                    print(f"Error inserting data: {e}")
+                    if self.conn and not self.conn.autocommit:
+                        try:
+                            self.conn.rollback()
+                        except:
+                            pass
+                    raise
     
-    def insert_bulk_data(self, data_list: List[Dict], platform: str) -> Dict:
+    def insert_bulk_data(self, data_list: List[Dict], platform: str, continue_on_error=True) -> Dict:
         """
-        Insert multiple bus data records
+        Insert multiple bus data records with better error handling
         
         Args:
             data_list: List of dictionaries containing bus data
             platform: 'redbus'
+            continue_on_error: Continue processing on errors
         
         Returns:
-            Dictionary with statistics: {'inserted': count, 'errors': count}
+            Dictionary with statistics: {'inserted': count, 'errors': count, 'duplicates': count}
         """
-        stats = {'inserted': 0, 'errors': 0}
+        stats = {'inserted': 0, 'errors': 0, 'duplicates': 0}
+        
+        # Ensure connection before starting bulk insert
+        if not self._ensure_connection():
+            print("❌ Cannot establish database connection for bulk insert")
+            stats['errors'] = len(data_list)
+            return stats
         
         # Calculate crawl_sequence once at the start for this bulk insert
         # All records in this batch will have the same sequence number
         crawl_sequence_cache = {}
         
-        for data in data_list:
+        for idx, data in enumerate(data_list):
             try:
                 # Get route info
                 route_name = data.get('Route_Name', data.get('route_name', ''))
@@ -447,11 +532,31 @@ class BusDatabase:
                 # Add sequence to data (will be used in insert_bus_data)
                 data['_crawl_sequence'] = crawl_sequence_cache[cache_key]
                 
-                if self.insert_bus_data(data, platform):
+                insert_result = self.insert_bus_data(data, platform, retry_on_failure=True)
+                if insert_result is True:
                     stats['inserted'] += 1
+                elif insert_result is False:
+                    # False means duplicate was skipped
+                    stats['duplicates'] += 1
+                    
+                # Periodic connection check every 50 records
+                if (idx + 1) % 50 == 0:
+                    self._ensure_connection()
+                        
             except Exception as e:
                 stats['errors'] += 1
-                print(f"Error processing record: {e}")
+                error_msg = str(e)
+                
+                # Check if it's a fatal connection error
+                if 'MySQL Connection not available' in error_msg:
+                    if continue_on_error:
+                        print(f"⚠️ Skipping record {idx + 1} due to connection issues")
+                        continue
+                    else:
+                        print(f"❌ Bulk insert aborted at record {idx + 1}")
+                        break
+                else:
+                    print(f"Error processing record {idx + 1}: {e}")
         
         return stats
     
