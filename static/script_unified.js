@@ -127,6 +127,13 @@ function selectAllUnifiedRoutes(select) {
     });
 }
 
+// Select all buses
+function selectAllBuses(select) {
+    document.querySelectorAll('.bus-name-checkbox').forEach(cb => {
+        cb.checked = select;
+    });
+}
+
 // Start Unified Crawling
 async function startUnifiedCrawling() {
     // Get selected platforms
@@ -168,6 +175,10 @@ async function startUnifiedCrawling() {
     const maxScrollInput = document.getElementById('unified-max-scroll').value;
     const maxScroll = maxScrollInput ? parseInt(maxScrollInput) : null;
 
+    // Get selected bus names
+    const selectedBusNames = Array.from(document.querySelectorAll('.bus-name-checkbox:checked'))
+        .map(cb => cb.value);
+
     // Show progress section
     document.getElementById('unified-progress-section').style.display = 'block';
     document.getElementById('unified-start-btn').style.display = 'none';
@@ -182,7 +193,7 @@ async function startUnifiedCrawling() {
 
     if (redbusChecked) {
         document.getElementById('redbus-progress-section').style.display = 'block';
-        promises.push(startRedbusCrawling(selectedRoutes, selectedDates, maxBuses, maxScroll));
+        promises.push(startRedbusCrawling(selectedRoutes, selectedDates, maxBuses, maxScroll, selectedBusNames));
     }
 
     // Wait for all to start
@@ -227,20 +238,25 @@ async function startTravelokaCrawling(routes, dates) {
 }
 
 // Start Redbus Crawling
-async function startRedbusCrawling(routes, dates, maxBuses = null, maxScroll = null) {
+async function startRedbusCrawling(routes, dates, maxBuses = null, maxScroll = null, busNames = []) {
     const data = {
         routes: routes,
         dates: dates
     };
-    
+
     // Add max_buses if provided
     if (maxBuses !== null && maxBuses > 0) {
         data.max_buses = maxBuses;
     }
-    
+
     // Add max_scroll if provided
     if (maxScroll !== null && maxScroll > 0) {
         data.max_scroll = maxScroll;
+    }
+
+    // Add bus_names if provided
+    if (busNames && busNames.length > 0) {
+        data.bus_names = busNames;
     }
 
     try {
@@ -257,15 +273,20 @@ async function startRedbusCrawling(routes, dates, maxBuses = null, maxScroll = n
 
         const result = await response.json();
         console.log('Redbus started:', result);
-        
+
         // Show max_buses info if set
         if (result.max_buses) {
             console.log(`Max buses limit: ${result.max_buses} per task`);
         }
-        
+
         // Show max_scroll info if set
         if (result.max_scroll) {
             console.log(`Max scroll limit: ${result.max_scroll} iterations per task`);
+        }
+
+        // Show filter_buses info if set
+        if (result.filter_buses && result.filter_buses.length > 0) {
+            console.log(`Filtering bus companies: ${result.filter_buses.join(', ')}`);
         }
     } catch (error) {
         console.error('Redbus error:', error);
@@ -437,24 +458,19 @@ function updatePlatformStatus(platform, status) {
     document.getElementById(`${platform}-success`).textContent = status.stats.successful;
     document.getElementById(`${platform}-failed`).textContent = status.stats.failed;
 
-    // Check if both platforms are stopped
+    // Check if crawling has stopped
     if (!status.is_running) {
+        // Reset time tracking for this platform
+        resetTimeTracking(platform);
+
         // Check if unified UI is visible
         const progressSection = document.getElementById('unified-progress-section');
         if (progressSection && progressSection.style.display !== 'none') {
-            // Check if other platform is also stopped
-            fetch('/api/status')
-                .then(r => r.json())
-                .then(allStatus => {
-                    const travelokaStopped = !allStatus.traveloka.is_running;
-                    const redbusStopped = !allStatus.redbus.is_running;
-
-                    if (travelokaStopped && redbusStopped) {
-                        // Both stopped, show start button
-                        document.getElementById('unified-start-btn').style.display = 'block';
-                        document.getElementById('unified-stop-btn').style.display = 'none';
-                    }
-                });
+            // For Redbus (only platform we use now), switch buttons when it stops
+            if (platform === 'redbus') {
+                document.getElementById('unified-start-btn').style.display = 'block';
+                document.getElementById('unified-stop-btn').style.display = 'none';
+            }
         }
     }
 }

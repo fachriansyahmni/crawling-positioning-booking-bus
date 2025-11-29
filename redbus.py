@@ -168,7 +168,7 @@ def format_url_with_date(url, date_str):
         print(f"Invalid date format: {date_str}. Expected YYYY-MM-DD")
         return url
 
-def get_bus_detail(driver, url, route, date_str, max_buses=None, max_scroll=None):
+def get_bus_detail(driver, url, route, date_str, max_buses=None, max_scroll=None, filter_buses=None):
     """
     Get bus details for a specific route and date
     Args:
@@ -178,6 +178,7 @@ def get_bus_detail(driver, url, route, date_str, max_buses=None, max_scroll=None
         date_str: Date in YYYY-MM-DD format
         max_buses: Maximum number of buses to scrape (None = all buses)
         max_scroll: Maximum number of scroll iterations (None = unlimited, scroll until end)
+        filter_buses: List of bus company names to filter (None = all buses)
     """
     try:
         formatted_url = format_url_with_date(url, date_str)
@@ -186,6 +187,8 @@ def get_bus_detail(driver, url, route, date_str, max_buses=None, max_scroll=None
             print(f"  Max buses limit: {max_buses}")
         if max_scroll:
             print(f"  Max scroll limit: {max_scroll} iterations")
+        if filter_buses:
+            print(f"  Filtering bus companies: {', '.join(filter_buses)}")
         driver.get(formatted_url)
         
         wait = WebDriverWait(driver, 30)
@@ -194,6 +197,67 @@ def get_bus_detail(driver, url, route, date_str, max_buses=None, max_scroll=None
 
         bus_item_selector = "li.row-sec.clearfix"
         wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, bus_item_selector)))
+        
+        # Apply bus name filter if specified
+        if filter_buses and len(filter_buses) > 0:
+            try:
+                print(f"Applying bus name filter for: {', '.join(filter_buses)}")
+                
+                # Click the operator filter input to open the popup
+                operator_filter_input = wait.until(
+                    EC.element_to_be_clickable((By.CSS_SELECTOR, "#opfilter"))
+                )
+                operator_filter_input.click()
+                time.sleep(random.uniform(1, 2))
+                
+                # Wait for the filter popup to appear
+                wait.until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, ".filter-popup"))
+                )
+                time.sleep(random.uniform(0.5, 1))
+                
+                # Select each bus company from filter_buses list
+                for bus_company in filter_buses:
+                    try:
+                        # Find the checkbox li element using data-value attribute
+                        checkbox_li = driver.find_element(
+                            By.CSS_SELECTOR, 
+                            f"li.checkbox[data-value='{bus_company}']"
+                        )
+                        
+                        # Get the checkbox input to check if already selected
+                        checkbox_input = checkbox_li.find_element(By.CSS_SELECTOR, "input[type='checkbox']")
+                        
+                        # Click the label (not the input) - this is the proper way for custom checkboxes
+                        if not checkbox_input.is_selected():
+                            # Click the cbox-label which triggers the custom checkbox
+                            label = checkbox_li.find_element(By.CSS_SELECTOR, "label.cbox-label")
+                            driver.execute_script("arguments[0].scrollIntoView(true);", label)
+                            time.sleep(random.uniform(0.2, 0.4))
+                            label.click()
+                            print(f"  ✓ Selected: {bus_company}")
+                            time.sleep(random.uniform(0.3, 0.6))
+                        else:
+                            print(f"  ℹ Already selected: {bus_company}")
+                    except NoSuchElementException:
+                        print(f"  ⚠ Bus company '{bus_company}' not found in filter list")
+                    except Exception as e:
+                        print(f"  ⚠ Error selecting {bus_company}: {e}")
+                
+                # Click the APPLY button
+                apply_button = wait.until(
+                    EC.element_to_be_clickable((By.CSS_SELECTOR, ".button.btn-apply.op-apply"))
+                )
+                driver.execute_script("arguments[0].scrollIntoView(true);", apply_button)
+                time.sleep(random.uniform(0.5, 1))
+                apply_button.click()
+                print("  ✓ Filter applied")
+                time.sleep(random.uniform(2, 3))
+                
+            except Exception as e:
+                print(f"  ⚠ Error applying bus name filter: {e}")
+                print("  Continuing without filter...")
+        
         driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
 
         # === LOGIKA SCROLL DINAMIS DIMULAI DI SINI ===
@@ -229,7 +293,7 @@ def get_bus_detail(driver, url, route, date_str, max_buses=None, max_scroll=None
         # === LOGIKA SCROLL DINAMIS SELESAI ===
         bus_items = driver.find_elements(By.CSS_SELECTOR, bus_item_selector)
         time.sleep(random.uniform(2, 4))
-        
+
         # Apply max_buses limit if specified
         total_buses_found = len(bus_items)
         if max_buses and total_buses_found > max_buses:
@@ -468,14 +532,27 @@ def get_user_input():
     else:
         print("✓ No limit set - will scroll until end of page")
     
+    # Bus name filter
+    print("\n" + "-"*60)
+    print("Bus Company Filter (optional):")
+    print("Available companies: DAMRI, LORENA, MTrans, Sinar Jaya, Agramas, 27 Trans, Harapan Jaya")
+    bus_names_input = input("Enter bus company names (comma-separated, or press Enter for all): ").strip()
+    
+    filter_buses = None
+    if bus_names_input:
+        filter_buses = [name.strip() for name in bus_names_input.split(',')]
+        print(f"✓ Will filter for: {', '.join(filter_buses)}")
+    else:
+        print("✓ No filter - will crawl all bus companies")
+    
     confirm = input("\nProceed with scraping? (y/n): ").strip().lower()
     if confirm != 'y':
         print("Scraping cancelled.")
         sys.exit(0)
     
-    return selected_routes, selected_dates, max_buses, max_scroll
+    return selected_routes, selected_dates, max_buses, max_scroll, filter_buses
 
-def scrape_with_selection(selected_routes, selected_dates, max_buses=None, max_scroll=None):
+def scrape_with_selection(selected_routes, selected_dates, max_buses=None, max_scroll=None, filter_buses=None):
     """
     Scrape with user-selected routes and dates
     Args:
@@ -483,12 +560,15 @@ def scrape_with_selection(selected_routes, selected_dates, max_buses=None, max_s
         selected_dates: List of date strings
         max_buses: Maximum buses per route/date (None = unlimited)
         max_scroll: Maximum scroll iterations (None = unlimited)
+        filter_buses: List of bus company names to filter (None = all buses)
     """
     print("\nStarting scraping process...")
     if max_buses:
         print(f"Max buses per route/date: {max_buses}")
     if max_scroll:
         print(f"Max scroll iterations: {max_scroll}")
+    if filter_buses:
+        print(f"Filtering bus companies: {', '.join(filter_buses)}")
     all_bus_details = []
     total_tasks = len(selected_routes) * len(selected_dates)
     current_task = 0
@@ -503,7 +583,7 @@ def scrape_with_selection(selected_routes, selected_dates, max_buses=None, max_s
                 print("-" * 60)
                 
                 try:
-                    bus_details = get_bus_detail(driver, url, route_name, date_str, max_buses=max_buses, max_scroll=max_scroll)
+                    bus_details = get_bus_detail(driver, url, route_name, date_str, max_buses=max_buses, max_scroll=max_scroll, filter_buses=filter_buses)
                     if bus_details:
                         df_bus_details = pd.DataFrame(bus_details)
                         # Use simplified filename with date
@@ -561,9 +641,9 @@ if __name__ == "__main__":
         all_bus_details = scrape_all_pages()
     else:
         # Interactive mode - get user input
-        selected_routes, selected_dates, max_buses, max_scroll = get_user_input()
+        selected_routes, selected_dates, max_buses, max_scroll, filter_buses = get_user_input()
         print(f"\nStarting scraping for {len(selected_routes)} routes and {len(selected_dates)} dates...")
-        all_bus_details = scrape_with_selection(selected_routes, selected_dates, max_buses=max_buses, max_scroll=max_scroll)
+        all_bus_details = scrape_with_selection(selected_routes, selected_dates, max_buses=max_buses, max_scroll=max_scroll, filter_buses=filter_buses)
     
     if all_bus_details:
         print(f"\n✓ Total data successfully scraped: {len(all_bus_details)} buses")

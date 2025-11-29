@@ -14,7 +14,7 @@
     <div class="container-fluid main-container">
         <!-- Header -->
         <div class="header">
-           
+
         </div>
 
         <!-- Main Navigation -->
@@ -107,21 +107,94 @@
                             </div>
                         </div>
 
+
+                        <!-- Bus Name Filter -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">
+                                <i class="bi bi-bus-front"></i> Filter by Bus Company (Optional):
+                            </label>
+                            <div class="d-flex gap-2 mb-2">
+                                <button class="btn btn-sm btn-outline-secondary" onclick="selectAllBuses(true)">
+                                    <i class="bi bi-check-all"></i> Select All
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="selectAllBuses(false)">
+                                    <i class="bi bi-x-circle"></i> Clear All
+                                </button>
+                            </div>
+                            <div class="row g-2" id="bus-names-list">
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input bus-name-checkbox" type="checkbox" value="DAMRI"
+                                            id="bus-damri">
+                                        <label class="form-check-label" for="bus-damri">DAMRI</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input bus-name-checkbox" type="checkbox" value="LORENA"
+                                            id="bus-lorena">
+                                        <label class="form-check-label" for="bus-lorena">LORENA</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input bus-name-checkbox" type="checkbox" value="MTrans"
+                                            id="bus-mtrans">
+                                        <label class="form-check-label" for="bus-mtrans">MTrans</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input bus-name-checkbox" type="checkbox"
+                                            value="Sinar Jaya" id="bus-sinarjaya">
+                                        <label class="form-check-label" for="bus-sinarjaya">Sinar Jaya</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input bus-name-checkbox" type="checkbox"
+                                            value="Agramas" id="bus-agramas">
+                                        <label class="form-check-label" for="bus-agramas">Agramas</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input bus-name-checkbox" type="checkbox"
+                                            value="27 Trans" id="bus-27trans">
+                                        <label class="form-check-label" for="bus-27trans">27 Trans</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input bus-name-checkbox" type="checkbox"
+                                            value="Harapan Jaya" id="bus-harapanjaya">
+                                        <label class="form-check-label" for="bus-harapanjaya">Harapan Jaya</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <small class="text-muted">
+                                <i class="bi bi-filter"></i>
+                                Leave all unchecked to crawl all bus companies, or select specific companies to filter
+                            </small>
+                        </div>
+
                         <!-- Max Buses Limit -->
                         <div class="mb-4">
                             <label class="form-label fw-bold">
                                 <i class="bi bi-speedometer2"></i> Max Buses per Task (Optional):
                             </label>
                             <div class="input-group">
-                                <input type="number" class="form-control" id="unified-max-buses" 
-                                       placeholder="Leave empty for unlimited" min="1" step="1">
+                                <input type="number" class="form-control" id="unified-max-buses"
+                                    placeholder="Leave empty for unlimited" min="1" step="1">
                                 <span class="input-group-text">
-                                    <i class="bi bi-info-circle" title="Limit buses scraped per route/date combination"></i>
+                                    <i class="bi bi-info-circle"
+                                        title="Limit buses scraped per route/date combination"></i>
                                 </span>
                             </div>
                             <small class="text-muted">
-                                <i class="bi bi-lightbulb"></i> 
-                                Leave empty to crawl all buses. Set a number (e.g., 10, 50) to limit results for faster testing.
+                                <i class="bi bi-lightbulb"></i>
+                                Leave empty to crawl all buses. Set a number (e.g., 10, 50) to limit results for faster
+                                testing.
                             </small>
                         </div>
 
@@ -131,15 +204,17 @@
                                 <i class="bi bi-arrow-down-circle"></i> Max Scroll Iterations (Optional):
                             </label>
                             <div class="input-group">
-                                <input type="number" class="form-control" id="unified-max-scroll" 
-                                       placeholder="Leave empty for unlimited" min="1" step="1">
+                                <input type="number" class="form-control" id="unified-max-scroll"
+                                    placeholder="Leave empty for unlimited" min="1" step="1">
                                 <span class="input-group-text">
-                                    <i class="bi bi-info-circle" title="Limit page scroll iterations for faster crawling"></i>
+                                    <i class="bi bi-info-circle"
+                                        title="Limit page scroll iterations for faster crawling"></i>
                                 </span>
                             </div>
                             <small class="text-muted">
-                                <i class="bi bi-lightning-fill"></i> 
-                                Faster testing! Set scroll limit (e.g., 3, 5) to stop scrolling early. Leave empty to scroll until page end.
+                                <i class="bi bi-lightning-fill"></i>
+                                Faster testing! Set scroll limit (e.g., 3, 5) to stop scrolling early. Leave empty to
+                                scroll until page end.
                             </small>
                         </div>
 
