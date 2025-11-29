@@ -106,6 +106,16 @@ def initialize_driver(headless=None):
     options.add_argument('--disable-extensions')
     options.add_argument('--disable-software-rasterizer')
     options.add_argument('--log-level=3')  # Suppress warnings
+
+    options.add_argument('--single-process')  # Run in single process mode
+    options.add_argument('--disable-background-networking')
+    options.add_argument('--disable-default-apps')
+    options.add_argument('--disable-sync')
+    options.add_argument('--metrics-recording-only')
+    options.add_argument('--mute-audio')
+    options.add_argument('--no-first-run')
+    options.add_argument('--safebrowsing-disable-auto-update')
+    options.add_argument('--disable-crash-reporter')
     
     # Anti-detection settings (works for both headless and visible)
     user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
