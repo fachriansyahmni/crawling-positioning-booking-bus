@@ -6,7 +6,8 @@
     "port": 3306,
     "database": "crawling_data",
     "user": "root",
-    "password": ""
+    "password": "",
+    "ssl_disabled": true
   },
   "_comment_sqlite": "SQLite Configuration (Local Database)",
   "_database_sqlite": {

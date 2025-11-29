@@ -61,7 +61,8 @@ class BusDatabase:
                     connection_timeout=10,  # 10 seconds timeout
                     connect_timeout=10,     # Alternative timeout parameter
                     use_pure=True,          # Use pure Python implementation (fixes hanging issue)
-                    autocommit=False
+                    autocommit=False,
+                    ssl_disabled=True
                 )
                 self.cursor = self.conn.cursor(dictionary=True)
                 print(f"✓ Connected to MySQL database: {self.db_config['database']}")
